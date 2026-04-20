@@ -10,7 +10,7 @@ with col1:
     st.image("DoseSafe.png", width=300)
 
 with col2:
-    #st.title("DoseSafe")
+    st.title("DoseSafe")
     st.caption("Safe medicine tracking for children")
 
 create_tables()
