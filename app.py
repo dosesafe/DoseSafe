@@ -2,73 +2,96 @@ import streamlit as st
 from datetime import datetime, timedelta
 from database import *
 
-# -----------------------
-# CONFIG
-# -----------------------
-st.set_page_config(
-    page_title="Medicine Tracker",
-    layout="centered"
-)
+st.set_page_config(page_title="DoseSafe", layout="centered")
 
-st.title("👶 Medicine Tracker")
-st.caption("Track doses and know exactly when it's safe to give again")
+st.title("🛡️ DoseSafe")
+st.caption("Safe medicine tracking for children")
 
 create_tables()
 
-# -----------------------
-# ADD MED (SIDEBAR)
-# -----------------------
+# -------------------------
+# SIDEBAR - ADD CHILD
+# -------------------------
 with st.sidebar:
-    st.header("➕ Add Medicine")
+    st.header("👶 Add Child")
+    child_name = st.text_input("Child name")
 
-    name = st.text_input("Medicine Name")
-    dosage = st.text_input("Dosage (e.g. 5ml)")
-    interval = st.number_input("Hours between doses", min_value=1, step=1)
+    if st.button("Add Child"):
+        if child_name:
+            add_child(child_name)
+            st.success("Child added")
+            st.rerun()
+
+# -------------------------
+# SELECT CHILD
+# -------------------------
+children = get_children()
+
+if not children:
+    st.info("Add a child to get started")
+    st.stop()
+
+child_names = [c[1] for c in children]
+selected_name = st.selectbox("Select Child", child_names)
+
+selected_child = next(c for c in children if c[1] == selected_name)
+child_id = selected_child[0]
+
+# -------------------------
+# ADD MED
+# -------------------------
+with st.expander("➕ Add Medicine"):
+    med_name = st.text_input("Medicine name")
+    dosage = st.text_input("Dosage")
+    interval = st.number_input("Hours between doses", min_value=1)
 
     if st.button("Add Medicine"):
-        if name:
-            add_med(name, dosage, interval)
-            st.success("Added!")
-            st.rerun()
-        else:
-            st.warning("Enter a name")
+        add_med(child_id, med_name, dosage, interval)
+        st.success("Medicine added")
+        st.rerun()
 
-# -----------------------
-# MAIN VIEW
-# -----------------------
-st.header("Today")
+# -------------------------
+# SHOW MEDS
+# -------------------------
+st.header("Today's Doses")
 
-meds = get_meds()
+meds = get_meds_by_child(child_id)
 
 if not meds:
-    st.info("No medicines added yet")
-else:
-    for med in meds:
-        id, name, dosage, interval = med
+    st.info("No medicines for this child yet")
 
-        st.subheader(name)
-        st.caption(f"{dosage} • every {interval} hrs")
+for med in meds:
+    id, child_id, name, dosage, interval = med
 
-        last = get_last_dose(id)
+    st.subheader(name)
+    st.caption(f"{dosage} • every {interval} hrs")
 
-        if last:
-            last_time = datetime.fromisoformat(last)
-            next_time = last_time + timedelta(hours=interval)
-            now = datetime.now()
+    last = get_last_dose(id)
 
-            st.write(f"🕒 Last given: {last_time.strftime('%H:%M')}")
+    if last:
+        last_time = datetime.fromisoformat(last)
+        next_time = last_time + timedelta(hours=interval)
+        now = datetime.now()
 
-            if now < next_time:
-                st.error(f"❌ Next dose at {next_time.strftime('%H:%M')}")
-            else:
-                st.success("✅ Safe to give now")
+        minutes_ago = int((now - last_time).total_seconds() / 60)
 
+        st.write(f"🕒 Last given: {last_time.strftime('%H:%M')} ({minutes_ago} min ago)")
+
+        # ✅ ALWAYS show next dose time
+        st.write(f"⏭️ Next dose at: {next_time.strftime('%H:%M')}")
+
+        # Status indicator
+        if now < next_time:
+            remaining = int((next_time - now).total_seconds() / 60)
+            st.error(f"❌ Too soon ({remaining} min remaining)")
         else:
-            st.info("No doses recorded yet")
+            st.success("✅ Safe to give now")
 
-        # BIG BUTTON (mobile friendly)
-        if st.button(f"💊 Give {name}", key=id, use_container_width=True):
-            log_dose(id, datetime.now().isoformat())
-            st.rerun()
+    else:
+        st.info("No doses recorded yet")
 
-        st.divider()
+    if st.button(f"💊 Give {name}", key=id, use_container_width=True):
+        log_dose(id, datetime.now().isoformat())
+        st.rerun()
+
+    st.divider()
