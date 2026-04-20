@@ -132,5 +132,17 @@ for med in meds:
         else:
             log_dose(id, datetime.now().isoformat(), given_by)
             st.rerun()
+        
+    with st.expander("📋 Dose History"):
+        logs = get_logs_by_med(id)
+
+        if not logs:
+            st.write("No history yet")
+        else:
+            for log in logs:
+                time_given = datetime.fromisoformat(log[0])
+                given_by_name = log[1] if log[1] else "Unknown"
+
+                st.write(f"💊 {time_given.strftime('%d %b %H:%M')} – 👩‍⚕️ {given_by_name}")    
 
     st.divider()
