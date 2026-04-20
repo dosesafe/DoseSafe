@@ -127,10 +127,10 @@ for med in meds:
         st.info("No doses recorded yet")
 
     if st.button(f"💊 Give {name}", key=id, use_container_width=True):
-        if not given_by:
-            st.warning("Please enter who is giving the medication")
-        else:
-            log_dose(id, datetime.now().isoformat(), given_by)
+    if not given_by:
+        st.warning("Please enter who is giving the medication")
+    else:
+        log_dose(id, datetime.now().isoformat(), given_by)
         st.rerun()
 
     st.divider()
