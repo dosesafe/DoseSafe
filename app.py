@@ -4,8 +4,14 @@ from database import *
 
 st.set_page_config(page_title="DoseSafe", layout="centered")
 
-st.title("🛡️ DoseSafe")
-st.caption("Safe medicine tracking for children")
+col1, col2 = st.columns([1, 4])
+
+with col1:
+    st.image("DoseSafe.png", width=60)
+
+with col2:
+    st.title("DoseSafe")
+    st.caption("Safe medicine tracking for children")
 
 create_tables()
 
