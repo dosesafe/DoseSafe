@@ -82,6 +82,7 @@ with st.expander("➕ Add Medicine"):
 # SHOW MEDS
 # -------------------------
 st.header("Today's Doses")
+given_by = st.text_input("👩‍⚕️ Who is giving the medication?")
 
 meds = get_meds_by_child(child_id)
 
@@ -126,7 +127,10 @@ for med in meds:
         st.info("No doses recorded yet")
 
     if st.button(f"💊 Give {name}", key=id, use_container_width=True):
-        log_dose(id, datetime.now().isoformat())
+        if not given_by:
+            st.warning("Please enter who is giving the medication")
+        else:
+            log_dose(id, datetime.now().isoformat(), given_by)
         st.rerun()
 
     st.divider()
