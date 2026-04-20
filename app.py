@@ -14,16 +14,20 @@ create_tables()
 # -------------------------
 with st.sidebar:
     st.header("👶 Add Child")
-    child_name = st.text_input("Child name")
+
+    name = st.text_input("First Name")
+    surname = st.text_input("Surname")
+    dob = st.date_input("Date of Birth")
+    school = st.text_input("School")
 
     if st.button("Add Child"):
-        if child_name:
-            add_child(child_name)
+        if name and surname:
+            add_child(name, surname, str(dob), school)
             st.success("Child added")
             st.rerun()
 
 # -------------------------
-# SELECT CHILD
+# SELECT CHILD + SEARCH
 # -------------------------
 children = get_children()
 
@@ -31,10 +35,34 @@ if not children:
     st.info("Add a child to get started")
     st.stop()
 
-child_names = [c[1] for c in children]
-selected_name = st.selectbox("Select Child", child_names)
+# 🔍 SEARCH BOX (ADD HERE)
+search = st.text_input("🔍 Search child (name or surname)")
 
-selected_child = next(c for c in children if c[1] == selected_name)
+# FILTER
+if search:
+    filtered_children = [
+        c for c in children
+        if search.lower() in (c[1] + " " + c[2]).lower()
+    ]
+else:
+    filtered_children = children
+
+if not filtered_children:
+    st.warning("No matching children found")
+    st.stop()
+
+# DISPLAY LIST
+child_display = [
+    f"{c[1]} {c[2]} ({c[3]})" for c in filtered_children
+]
+
+selected_display = st.selectbox("Select Child", child_display)
+
+selected_child = next(
+    c for c in filtered_children
+    if f"{c[1]} {c[2]} ({c[3]})" == selected_display
+)
+
 child_id = selected_child[0]
 
 # -------------------------
