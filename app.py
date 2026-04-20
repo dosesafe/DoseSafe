@@ -82,8 +82,15 @@ for med in meds:
 
         # Status indicator
         if now < next_time:
-            remaining = int((next_time - now).total_seconds() / 60)
-            st.error(f"❌ Too soon ({remaining} min remaining)")
+            remaining_seconds = int((next_time - now).total_seconds())
+
+            hours = remaining_seconds // 3600
+            minutes = (remaining_seconds % 3600) // 60
+
+            if hours > 0:
+                st.error(f"❌ Too soon ({hours}h {minutes}m remaining)")
+            else:
+                st.error(f"❌ Too soon ({minutes} min remaining)")
         else:
             st.success("✅ Safe to give now")
 
