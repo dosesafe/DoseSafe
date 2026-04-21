@@ -4,15 +4,25 @@ from database import *
 
 st.set_page_config(page_title="DoseSafe", layout="centered")
 
+# UI STYLE (button polish)
+st.markdown("""
+<style>
+div.stButton > button {
+    height: 50px;
+    font-size: 16px;
+}
+</style>
+""", unsafe_allow_html=True)
+
 create_tables()
 
-ADMIN_PIN = "3434"  # change this
+ADMIN_PIN = "3434"
 
 st.title("DoseSafe")
 st.caption("Safe medicine tracking for children")
 
 # -------------------------
-# ADMIN PANEL (WITH TOGGLE)
+# ADMIN PANEL
 # -------------------------
 st.sidebar.header("⚙️ Admin")
 
@@ -65,7 +75,7 @@ else:
                     st.rerun()
 
 # -------------------------
-# SCHOOL LOGIN FLOW
+# LOGIN FLOW
 # -------------------------
 schools = get_schools()
 
@@ -87,9 +97,7 @@ if not verify_staff(staff_name, staff_pin, selected_school):
     st.error("Invalid PIN")
     st.stop()
 
-# -------------------------
-# USER INFO (SIDEBAR)
-# -------------------------
+# Sidebar user info
 st.sidebar.markdown("---")
 st.sidebar.subheader("👤 Current User")
 st.sidebar.markdown(f"### {staff_name}")
@@ -100,29 +108,23 @@ st.sidebar.caption(selected_school)
 # -------------------------
 children = get_children(selected_school)
 
-# ADD CHILD ALWAYS AVAILABLE
 with st.expander("➕ Add Child", expanded=(len(children) == 0)):
-
     name = st.text_input("First Name")
     surname = st.text_input("Surname")
     dob = st.date_input("DOB")
 
     if st.button("Add Child"):
         cid = add_child(name, surname, str(dob), selected_school)
-
         if cid:
             st.success("Child added")
         else:
-            st.warning("Child already exists")
-
+            st.warning("Child exists")
         st.rerun()
 
-# IF NO CHILDREN
 if not children:
     st.info("Add a child to continue")
     st.stop()
 
-# SELECT CHILD
 child_map = {f"{c[1]} {c[2]}": c[0] for c in children}
 
 selected = st.selectbox("Select Child", ["--"] + list(child_map.keys()))
@@ -133,19 +135,22 @@ if selected == "--":
 cid = child_map[selected]
 
 # -------------------------
-# MEDICATION
+# MEDICATION (CARD UI)
 # -------------------------
 st.header("💊 Medication")
 
 meds = get_meds(cid)
 
+if not meds:
+    st.info("No medication added")
+
 for m in meds:
     mid, _, name, dose, interval = m
 
-    st.subheader(name)
-    st.caption(f"{dose} • every {interval} hrs")
-
     last = get_last_dose(mid)
+
+    status = "info"
+    status_text = "No doses yet"
 
     if last:
         last_time = datetime.fromisoformat(last)
@@ -153,24 +158,41 @@ for m in meds:
 
         if datetime.now() < next_time:
             diff = next_time - datetime.now()
-            total_seconds = int(diff.total_seconds())
+            seconds = int(diff.total_seconds())
 
-            hours = total_seconds // 3600
-            minutes = (total_seconds % 3600) // 60
+            hours = seconds // 3600
+            minutes = (seconds % 3600) // 60
 
             if hours > 0:
-                st.error(f"❌ Too soon ({hours}h {minutes}m)")
+                status = "error"
+                status_text = f"❌ Too soon ({hours}h {minutes}m)"
             else:
-                st.error(f"❌ Too soon ({minutes} min)")
+                status = "error"
+                status_text = f"❌ Too soon ({minutes} min)"
         else:
-            st.success("✅ Safe")
+            status = "success"
+            status_text = "✅ Safe to give"
 
-    else:
-        st.info("No doses recorded")
+    with st.container():
+        col1, col2 = st.columns([3,1])
 
-    if st.button(f"💊 Give {name}", key=f"give_{mid}"):
-        log_dose(mid, staff_name)
-        st.rerun()
+        with col1:
+            st.subheader(name)
+            st.caption(f"{dose} • every {interval} hrs")
+
+            if status == "success":
+                st.success(status_text)
+            elif status == "error":
+                st.error(status_text)
+            else:
+                st.info(status_text)
+
+        with col2:
+            if st.button("💊 Give", key=f"give_{mid}", use_container_width=True):
+                log_dose(mid, staff_name)
+                st.rerun()
+
+    st.divider()
 
 # ADD MED
 with st.expander("➕ Add Medicine"):
