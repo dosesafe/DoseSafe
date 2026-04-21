@@ -9,6 +9,32 @@ st.sidebar.title("DoseSafe")
 
 mode = st.sidebar.selectbox("Login Type", ["School Staff","Admin"])
 
+# ---------------- DISCLAIMER ----------------
+def show_disclaimer(user, role):
+    st.warning("""
+IMPORTANT DISCLAIMER
+
+DoseSafe is a medication tracking tool only.
+
+All medication must be prescribed by a licensed doctor.
+Warnings must be verified by a healthcare professional.
+
+DoseSafe is NOT liable for:
+- Incorrect medication
+- Dosage errors
+- Reactions or harm
+
+You accept full responsibility.
+""")
+
+    if not has_accepted_disclaimer(user, role):
+        agree = st.checkbox("I accept")
+        if agree:
+            if st.button("Accept"):
+                accept_disclaimer(user, role)
+                st.rerun()
+        st.stop()
+
 # ================= ADMIN =================
 if mode == "Admin":
     user = st.sidebar.text_input("Admin Username")
@@ -17,39 +43,21 @@ if mode == "Admin":
     if user != "Admin" or pin != "1234":
         st.stop()
 
-    if not has_accepted_disclaimer(user,"admin"):
-        st.warning("Accept disclaimer to continue")
-        if st.button("Accept"):
-            accept_disclaimer(user,"admin")
-            st.rerun()
-        st.stop()
+    show_disclaimer(user,"admin")
 
     st.title("Admin Panel")
-
-    schools = get_schools()
-    school = st.selectbox("School", schools)
-
-    status = st.selectbox("Status",["active","inactive"])
-    if st.button("Update Subscription"):
-        set_subscription(school,status,"2099-01-01")
-        st.success("Updated")
-
+    st.write(get_schools())
     st.stop()
 
 # ================= STAFF =================
 school = st.sidebar.selectbox("School", get_schools())
-staff = st.sidebar.text_input("Staff")
+staff = st.sidebar.text_input("Name")
 pin = st.sidebar.text_input("PIN", type="password")
 
 if not verify_staff(staff,pin,school):
     st.stop()
 
-if not has_accepted_disclaimer(staff,"staff"):
-    st.warning("Accept disclaimer to continue")
-    if st.button("Accept"):
-        accept_disclaimer(staff,"staff")
-        st.rerun()
-    st.stop()
+show_disclaimer(staff,"staff")
 
 st.title("DoseSafe")
 
@@ -58,14 +66,13 @@ cmap = {f"{c[1]} {c[2]}":c[0] for c in children}
 sel = st.selectbox("Child", cmap.keys())
 cid = cmap[sel]
 
-# ---------------- MEDICATION ----------------
+# ---------------- MEDS ----------------
 for m in get_meds(cid):
     mid,_,name,dose,interval,unit = m
 
     st.subheader(name)
 
     alert, allergy = check_med_allergy(cid,name)
-
     can_give = True
 
     if alert == "block":
@@ -91,3 +98,58 @@ for m in get_meds(cid):
             st.rerun()
     else:
         st.button(f"Give {name}", key=f"d{mid}", disabled=True)
+
+# ---------------- ADD MED ----------------
+st.markdown("### Add Medication")
+
+mode = st.radio("Type",["Library","Custom"])
+
+if mode=="Library":
+    lib=get_med_library()
+    lmap={f"{x[1]} ({x[2]})":x for x in lib}
+
+    sel=st.selectbox("Medication",list(lmap.keys()))
+    dose=st.text_input("Dosage")
+    interval=st.number_input("Interval",1)
+
+    if st.button("Add"):
+        m=lmap[sel]
+        add_med(cid,m[1],dose,interval,m[2])
+        st.rerun()
+
+else:
+    n=st.text_input("Name")
+    u=st.selectbox("Unit",["ml","unit","n/a"])
+    d=st.text_input("Dose")
+    i=st.number_input("Interval",1)
+
+    if st.button("Add Custom"):
+        add_med(cid,n,d,i,u)
+        add_med_to_library(n,u)
+        st.rerun()
+
+# ---------------- INCIDENTS ----------------
+st.markdown("### Incidents")
+t=st.selectbox("Type",["Injury","Illness","Allergic Reaction"])
+d=st.text_input("Description")
+
+if st.button("Log Incident"):
+    add_incident(cid,t,d,staff)
+    st.rerun()
+
+for i in get_incidents(cid):
+    st.write(i[2],i[3])
+
+# ---------------- REPORT ----------------
+if st.button("Generate Report"):
+    logs=get_today_logs(cid)
+    incs=get_today_incidents(cid)
+
+    out=[]
+    for l in logs:
+        out.append(f"{l[0]} {l[1]} {l[2]}")
+
+    for i in incs:
+        out.append(f"{i[0]} {i[2]}")
+
+    st.text_area("Report","\n".join(out),height=300)
