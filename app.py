@@ -55,7 +55,8 @@ if mode == "Admin":
 
     show_disclaimer(st.session_state["user"], "admin")
 
-    st.sidebar.success(f"👤 {st.session_state['user']}")
+    st.sidebar.success(f"🛠️ Admin: {st.session_state['user']}")
+    st.sidebar.caption("Administrator")
     if st.sidebar.button("🚪 Logout"): logout()
 
     st.title("Admin Panel")
@@ -135,7 +136,8 @@ elif mode == "School Staff":
 
     show_disclaimer(st.session_state["user"], "staff")
 
-    st.sidebar.success(f"👤 {st.session_state['user']}")
+    st.sidebar.success(f"👩‍🏫 {st.session_state['user']}")
+    st.sidebar.caption("Teacher")
     st.sidebar.write(f"🏫 {st.session_state['school']}")
     if st.sidebar.button("🚪 Logout"): logout()
 
@@ -288,56 +290,59 @@ elif mode == "School Staff":
 # ================= PARENT =================
 elif mode == "Parent":
 
-    tab1, tab2 = st.tabs(["Login","Register"])
+    # ---------- NOT LOGGED IN ----------
+    if not st.session_state["logged_in"]:
 
-    # LOGIN
-    with tab1:
-        name = st.text_input("Name", key="pl")
-        pin = st.text_input("PIN", type="password", key="pp")
+        tab1, tab2 = st.tabs(["Login","Register"])
 
-        if st.button("Login"):
-            r = verify_parent(name,pin)
-            if r:
-                parent_id, phone = r
+        # LOGIN
+        with tab1:
+            name = st.text_input("Name", key="pl")
+            pin = st.text_input("PIN", type="password", key="pp")
 
-                assign_children_to_parent(phone, parent_id)
+            if st.button("Login"):
+                r = verify_parent(name,pin)
+                if r:
+                    parent_id, phone = r
+
+                    assign_children_to_parent(phone, parent_id)
+
+                    st.session_state.update({
+                        "logged_in":True,
+                        "role":"Parent",
+                        "user":name,
+                        "phone":phone,
+                        "parent_id":parent_id
+                    })
+                    st.rerun()
+                else:
+                    st.error("Invalid login")
+
+        # REGISTER
+        with tab2:
+            name = st.text_input("Name", key="rn")
+            pin = st.text_input("PIN", key="rp")
+            phone = st.text_input("Phone")
+
+            if st.button("Register"):
+                pid = add_parent(name,pin,phone)
+                assign_children_to_parent(phone,pid)
 
                 st.session_state.update({
                     "logged_in":True,
                     "role":"Parent",
                     "user":name,
                     "phone":phone,
-                    "parent_id":parent_id
+                    "parent_id":pid
                 })
                 st.rerun()
-            else:
-                st.error("Invalid login")
 
-    # REGISTER
-    with tab2:
-        name = st.text_input("Name", key="rn")
-        pin = st.text_input("PIN", key="rp")
-        phone = st.text_input("Phone")
-
-        if st.button("Register"):
-            pid = add_parent(name,pin,phone)
-            assign_children_to_parent(phone,pid)
-
-            st.session_state.update({
-                "logged_in":True,
-                "role":"Parent",
-                "user":name,
-                "phone":phone,
-                "parent_id":pid
-            })
-            st.rerun()
-
-    if not st.session_state["logged_in"]:
         st.stop()
 
     show_disclaimer(st.session_state["user"], "parent")
 
-    st.sidebar.success(f"👤 {st.session_state['user']}")
+    st.sidebar.success(f"👪 {st.session_state['user']}")
+    st.sidebar.caption("Parent")
     if st.sidebar.button("🚪 Logout"): logout()
 
     children = get_children_by_phone(st.session_state["phone"])
