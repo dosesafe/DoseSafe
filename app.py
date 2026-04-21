@@ -251,6 +251,25 @@ elif mode == "School Staff":
 
     st.title("DoseSafe")
 
+    # -------------------------
+    # ➕ ADD CHILD
+    # -------------------------
+    st.markdown("### 👶 Add Child")
+
+    with st.expander("Add New Child"):
+
+        child_name = st.text_input("First Name", key="child_name")
+        child_surname = st.text_input("Surname", key="child_surname")
+        child_dob = st.date_input("Date of Birth", key="child_dob")
+
+        if st.button("Add Child", key="add_child_btn"):
+            if child_name and child_surname:
+                add_child(child_name, child_surname, str(child_dob), school)
+                st.success("Child added")
+                st.rerun()
+            else:
+                st.warning("Please fill in all required fields")
+
     # CHILDREN
     children = get_children(school)
 
