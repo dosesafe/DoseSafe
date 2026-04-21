@@ -308,19 +308,24 @@ def get_today_incidents(cid):
 # -------------------------
 # PARENTS
 # -------------------------
-def add_parent(name, pin, child_id):
+def add_parent(name,pin,child_id):
     conn = connect()
     c = conn.cursor()
-    c.execute("INSERT INTO parents (name, pin, child_id) VALUES (?,?,?)",
-              (name, pin, child_id))
+    c.execute("INSERT INTO parents (name,pin,child_id) VALUES (?,?,?)",(name,pin,child_id))
     conn.commit()
-    conn.close()
 
-def verify_parent(name, pin):
+def verify_parent(name,pin):
     conn = connect()
     c = conn.cursor()
-    c.execute("SELECT child_id FROM parents WHERE name=? AND pin=?",
-              (name, pin))
-    result = c.fetchone()
-    conn.close()
-    return result
+    c.execute("SELECT child_id FROM parents WHERE name=? AND pin=?",(name,pin))
+    return c.fetchone()
+
+def get_parents():
+    conn = connect()
+    c = conn.cursor()
+    c.execute("""
+    SELECT p.id,p.name,p.child_id,c.name,c.surname
+    FROM parents p
+    LEFT JOIN children c ON p.child_id=c.id
+    """)
+    return c.fetchall()
