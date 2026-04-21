@@ -6,15 +6,12 @@ st.set_page_config(page_title="DoseSafe", layout="centered")
 
 create_tables()
 
-ADMIN_PIN = "9999"
-
-# -------------------------
-# SIDEBAR LOGIN
-# -------------------------
 st.sidebar.title("DoseSafe")
 
+# -------------------------
+# LOGIN (SIDEBAR)
+# -------------------------
 schools = get_schools()
-
 selected_school = st.sidebar.selectbox("🏫 School", ["--"] + schools)
 
 if selected_school == "--":
@@ -36,39 +33,46 @@ if not verify_staff(staff_name, staff_pin, selected_school):
 st.sidebar.success(f"{staff_name}")
 
 # -------------------------
-# HIDDEN ADMIN
+# ADMIN AUTO-ACCESS
 # -------------------------
-if st.sidebar.checkbox("⚙️ Admin"):
-    pin = st.sidebar.text_input("Admin PIN", type="password")
+is_admin = staff_name.lower() == "admin"
 
-    if pin == ADMIN_PIN:
-        st.sidebar.success("Admin Mode")
+# -------------------------
+# ADMIN PANEL (AUTO OPEN)
+# -------------------------
+if is_admin:
+    st.sidebar.markdown("---")
+    st.sidebar.header("⚙️ Admin Panel")
 
-        name = st.sidebar.text_input("Name")
-        pin = st.sidebar.text_input("PIN")
-        school = st.sidebar.text_input("School")
+    name = st.sidebar.text_input("Staff Name")
+    pin = st.sidebar.text_input("Staff PIN")
+    school = st.sidebar.text_input("School")
 
-        if st.sidebar.button("Add Staff"):
+    if st.sidebar.button("Add Staff"):
+        if name and pin and school:
             add_staff(name, pin, school)
             st.sidebar.success("Added")
 
-        for s in get_all_staff():
-            sid, n, sch, active = s
+    st.sidebar.subheader("Staff Management")
 
-            col1, col2 = st.sidebar.columns([3,1])
+    for s in get_all_staff():
+        sid, n, sch, active = s
 
-            with col1:
-                st.write(f"{n} ({sch})")
+        col1, col2 = st.sidebar.columns([3,1])
 
-            with col2:
-                if active:
-                    if st.button("❌", key=f"d{sid}"):
-                        set_staff_active(sid, 0)
-                        st.rerun()
-                else:
-                    if st.button("✅", key=f"e{sid}"):
-                        set_staff_active(sid, 1)
-                        st.rerun()
+        with col1:
+            status = "🟢" if active else "🔴"
+            st.write(f"{status} {n} ({sch})")
+
+        with col2:
+            if active:
+                if st.button("❌", key=f"d{sid}"):
+                    set_staff_active(sid, 0)
+                    st.rerun()
+            else:
+                if st.button("✅", key=f"e{sid}"):
+                    set_staff_active(sid, 1)
+                    st.rerun()
 
 # -------------------------
 # ADD CHILD (SIDEBAR)
@@ -90,14 +94,14 @@ if st.sidebar.button("Add Child"):
 
     if cid:
         add_child_allergies(cid, [allergy_map[a] for a in selected_allergies])
-        st.sidebar.success("Added")
+        st.sidebar.success("Child added")
     else:
-        st.sidebar.warning("Exists")
+        st.sidebar.warning("Child already exists")
 
     st.rerun()
 
 # -------------------------
-# MAIN UI
+# MAIN SCREEN
 # -------------------------
 st.title("DoseSafe")
 
@@ -125,7 +129,7 @@ st.caption(f"DOB: {child_data[3]}")
 
 allergies = get_child_allergies(cid)
 if allergies:
-    st.error(f"🚨 {', '.join(allergies)}")
+    st.error(f"🚨 Allergies: {', '.join(allergies)}")
 
 st.divider()
 
@@ -139,20 +143,20 @@ meds = get_meds(cid)
 for m in meds:
     mid, _, name, dose, interval = m
 
-    last = get_last_dose(mid)
+    last_full = get_last_dose_full(mid)
 
-    last_text = "No doses yet"
-    next_text = ""
-    status = "info"
+    st.subheader(name)
+    st.caption(f"{dose} • every {interval} hrs")
 
-    if last:
-        last_time = datetime.fromisoformat(last)
+    if last_full:
+        last_time = datetime.fromisoformat(last_full[0])
+        given_by = last_full[1]
+
         next_time = last_time + timedelta(hours=interval)
-
-        last_text = f"Last: {last_time.strftime('%H:%M')}"
-        next_text = f"Next: {next_time.strftime('%H:%M')}"
-
         now = datetime.now()
+
+        st.write(f"Last: {last_time.strftime('%H:%M')} ({given_by})")
+        st.write(f"Next: {next_time.strftime('%H:%M')}")
 
         if now < next_time:
             diff = next_time - now
@@ -162,33 +166,13 @@ for m in meds:
             m = (sec % 3600) // 60
 
             if sec > 1800:
-                status = "error"
-                status_text = f"❌ Too soon ({h}h {m}m)"
+                st.error(f"❌ Too soon ({h}h {m}m)")
             else:
-                status = "warning"
-                status_text = f"⚠️ Due soon ({m} min)"
+                st.warning(f"⚠️ Due soon ({m} min)")
         else:
-            status = "success"
-            status_text = "✅ Safe"
-
+            st.success("✅ Safe to give")
     else:
-        status_text = "No doses yet"
-
-    st.subheader(name)
-    st.caption(f"{dose} • every {interval} hrs")
-
-    st.write(last_text)
-    if next_text:
-        st.write(next_text)
-
-    if status == "success":
-        st.success(status_text)
-    elif status == "error":
-        st.error(status_text)
-    elif status == "warning":
-        st.warning(status_text)
-    else:
-        st.info(status_text)
+        st.info("No doses recorded")
 
     if st.button(f"💊 Give {name}", key=f"g{mid}"):
         log_dose(mid, staff_name)
@@ -201,11 +185,11 @@ for m in meds:
 # -------------------------
 with st.expander("➕ Add Medicine"):
     med_name = st.text_input("Medicine")
-    dose = st.text_input("Dosage")
-    interval = st.number_input("Interval", min_value=1)
+    dosage = st.text_input("Dosage")
+    interval = st.number_input("Interval (hrs)", min_value=1)
 
     if st.button("Add Medicine"):
-        add_med(cid, med_name, dose, interval)
+        add_med(cid, med_name, dosage, interval)
         st.rerun()
 
 # -------------------------
@@ -224,3 +208,35 @@ for i in get_incidents(cid):
     t = datetime.fromisoformat(i[4])
     st.write(f"{i[2]} - {t.strftime('%H:%M')}")
     st.caption(f"{i[3]}")
+
+# -------------------------
+# DAILY REPORT
+# -------------------------
+st.header("📤 Daily Report")
+
+if st.button("Generate Report"):
+
+    logs = get_today_logs(cid)
+    incs = get_today_incidents(cid)
+
+    report = []
+
+    report.append("MEDICATION:")
+    if logs:
+        for l in logs:
+            t = datetime.fromisoformat(l[1])
+            report.append(f"- {l[0]} at {t.strftime('%H:%M')} ({l[2]})")
+    else:
+        report.append("- None")
+
+    report.append("")
+    report.append("INCIDENTS:")
+    if incs:
+        for i in incs:
+            t = datetime.fromisoformat(i[2])
+            report.append(f"- {i[0]} at {t.strftime('%H:%M')}")
+            report.append(f"  {i[1]} ({i[3]})")
+    else:
+        report.append("- None")
+
+    st.text_area("Report Output", "\n".join(report), height=300)
