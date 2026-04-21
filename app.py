@@ -325,27 +325,27 @@ elif mode == "School Staff":
             st.stop()
 
         if st.button("Generate Report"):
-    logs = get_today_logs(cid)
-    incs = get_today_incidents(cid)
+            logs = get_today_logs(cid)
+            incs = get_today_incidents(cid)
 
-    out = []
+            out = []
 
-    # MEDICATIONS
-    for l in logs:
-        med_name = l[0]
-        time = datetime.fromisoformat(l[1])
-        given_by = l[2] if l[2] else "Unknown"
+            # MEDICATIONS
+            for l in logs:
+                med_name = l[0]
+                time = datetime.fromisoformat(l[1])
+                given_by = l[2] if l[2] else "Unknown"
 
-        out.append(f"💊 {med_name} — {time.strftime('%H:%M')} ({given_by})")
+                out.append(f"💊 {med_name} — {time.strftime('%H:%M')} ({given_by})")
 
-    # INCIDENTS
-    for i in incs:
-        time = datetime.fromisoformat(i[0])
-        desc = i[2]
+            # INCIDENTS
+            for i in incs:
+                time = datetime.fromisoformat(i[0])
+                desc = i[2]
 
-        out.append(f"⚠️ {time.strftime('%H:%M')} — {desc}")
+                out.append(f"⚠️ {time.strftime('%H:%M')} — {desc}")
 
-    if not out:
-        st.info("No activity today")
-    else:
-        st.text_area("Report", "\n".join(out), height=300)
+            if not out:
+                st.info("No activity today")
+            else:
+                st.text_area("Report", "\n".join(out), height=300)
