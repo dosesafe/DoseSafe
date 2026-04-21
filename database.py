@@ -31,7 +31,7 @@ def create_tables():
     )
     """)
 
-    # MIGRATION
+    # MIGRATION SAFE
     c.execute("PRAGMA table_info(meds)")
     cols = [col[1] for col in c.fetchall()]
     if "unit" not in cols:
@@ -122,13 +122,17 @@ def create_tables():
     )
     """)
 
-    # DEFAULT DATA
-    allergies = ["Peanuts","Dairy","Eggs","Gluten","Penicillin","Bee stings","Latex"]
-    for a in allergies:
+    # DEFAULT ALLERGIES
+    defaults = [
+        "Peanuts","Dairy","Eggs","Gluten",
+        "Penicillin","Bee stings","Latex","Soy","Shellfish"
+    ]
+    for a in defaults:
         try:
             c.execute("INSERT INTO allergies (name) VALUES (?)",(a,))
         except: pass
 
+    # DEFAULT MEDS
     meds = [("Panado","ml"),("Nurofen","ml"),("Calpol","ml")]
     for m in meds:
         try:
@@ -157,78 +161,8 @@ def accept_disclaimer(user, role):
     conn.close()
 
 # -------------------------
-# ALLERGY INTERACTION
+# ALLERGY SYSTEM
 # -------------------------
-def get_allergy_warnings():
-    return {
-        "Penicillin": {"match": ["amoxicillin","penicillin"], "type": "block"}
-    }
-
-def get_child_allergies(cid):
-    conn = connect()
-    c = conn.cursor()
-    c.execute("""
-        SELECT a.name FROM allergies a
-        JOIN child_allergies ca ON a.id = ca.allergy_id
-        WHERE ca.child_id=?
-    """,(cid,))
-    return [x[0] for x in c.fetchall()]
-
-def check_med_allergy(child_id, med_name):
-    allergies = get_child_allergies(child_id)
-    rules = get_allergy_warnings()
-    med_lower = med_name.lower()
-
-    for allergy in allergies:
-        if allergy in rules:
-            for keyword in rules[allergy]["match"]:
-                if keyword in med_lower:
-                    return "block", allergy
-    return None, None
-
-# -------------------------
-# BASIC FUNCTIONS (UNCHANGED)
-# -------------------------
-def add_staff(name,pin,school):
-    connect().cursor().execute("INSERT INTO staff (name,pin,school) VALUES (?,?,?)",(name,pin,school))
-    connect().commit()
-
-def get_schools():
-    c = connect().cursor()
-    c.execute("SELECT DISTINCT school FROM staff WHERE active=1")
-    return [x[0] for x in c.fetchall()]
-
-def verify_staff(name,pin,school):
-    c = connect().cursor()
-    c.execute("SELECT id FROM staff WHERE name=? AND pin=? AND school=? AND active=1",(name,pin,school))
-    return c.fetchone()
-
-def get_staff_by_school(school):
-    c = connect().cursor()
-    c.execute("SELECT id,name FROM staff WHERE school=? AND active=1",(school,))
-    return c.fetchall()
-
-def get_all_staff():
-    c = connect().cursor()
-    c.execute("SELECT id,name,school,active FROM staff")
-    return c.fetchall()
-
-def set_staff_active(id,a):
-    connect().cursor().execute("UPDATE staff SET active=? WHERE id=?",(a,id))
-    connect().commit()
-
-def add_child(name,surname,dob,school):
-    conn = connect()
-    c = conn.cursor()
-    c.execute("INSERT INTO children VALUES (NULL,?,?,?,?)",(name,surname,dob,school))
-    conn.commit()
-    return c.lastrowid
-
-def get_children(school):
-    c = connect().cursor()
-    c.execute("SELECT * FROM children WHERE school=?",(school,))
-    return c.fetchall()
-
 def get_allergies():
     return connect().cursor().execute("SELECT id,name FROM allergies").fetchall()
 
@@ -239,23 +173,107 @@ def add_child_allergies(cid,aids):
         c.execute("INSERT INTO child_allergies VALUES (?,?)",(cid,a))
     conn.commit()
 
-def add_med(cid,name,dose,interval,unit):
-    connect().cursor().execute("INSERT INTO meds VALUES (NULL,?,?,?,?,?)",(cid,name,dose,interval,unit))
+def get_child_allergies(cid):
+    c = connect().cursor()
+    c.execute("""
+        SELECT a.name FROM allergies a
+        JOIN child_allergies ca ON a.id = ca.allergy_id
+        WHERE ca.child_id=?
+    """,(cid,))
+    return [x[0] for x in c.fetchall()]
+
+def get_allergy_warnings():
+    return {
+        "Penicillin": {"match": ["amoxicillin","penicillin"], "type": "block"}
+    }
+
+def check_med_allergy(cid, med):
+    allergies = get_child_allergies(cid)
+    rules = get_allergy_warnings()
+    med = med.lower()
+
+    for a in allergies:
+        if a in rules:
+            for k in rules[a]["match"]:
+                if k in med:
+                    return "block", a
+    return None, None
+
+# -------------------------
+# CORE FUNCTIONS
+# -------------------------
+def add_staff(n,p,s):
+    conn = connect()
+    conn.cursor().execute("INSERT INTO staff (name,pin,school) VALUES (?,?,?)",(n,p,s))
+    conn.commit()
+
+def get_schools():
+    c = connect().cursor()
+    c.execute("SELECT DISTINCT school FROM staff WHERE active=1")
+    return [x[0] for x in c.fetchall()]
+
+def verify_staff(n,p,s):
+    c = connect().cursor()
+    c.execute("SELECT id FROM staff WHERE name=? AND pin=? AND school=? AND active=1",(n,p,s))
+    return c.fetchone()
+
+def get_staff_by_school(s):
+    c = connect().cursor()
+    c.execute("SELECT id,name FROM staff WHERE school=? AND active=1",(s,))
+    return c.fetchall()
+
+def add_child(n,s,d,sc):
+    conn = connect()
+    c = conn.cursor()
+    c.execute("INSERT INTO children VALUES (NULL,?,?,?,?)",(n,s,d,sc))
+    conn.commit()
+    return c.lastrowid
+
+def get_children(sc):
+    return connect().cursor().execute("SELECT * FROM children WHERE school=?",(sc,)).fetchall()
+
+def add_med(cid,n,d,i,u):
+    connect().cursor().execute("INSERT INTO meds VALUES (NULL,?,?,?,?,?)",(cid,n,d,i,u))
     connect().commit()
 
 def get_meds(cid):
     return connect().cursor().execute("SELECT * FROM meds WHERE child_id=?",(cid,)).fetchall()
 
-def log_dose(mid,user):
-    connect().cursor().execute("INSERT INTO logs VALUES (NULL,?,?,?)",(mid,datetime.now().isoformat(),user))
+def log_dose(mid,u):
+    connect().cursor().execute("INSERT INTO logs VALUES (NULL,?,?,?)",(mid,datetime.now().isoformat(),u))
     connect().commit()
 
 def get_last_dose_full(mid):
     return connect().cursor().execute("SELECT time_given,given_by FROM logs WHERE med_id=? ORDER BY time_given DESC LIMIT 1",(mid,)).fetchone()
 
-def add_incident(cid,t,desc,user):
-    connect().cursor().execute("INSERT INTO incidents VALUES (NULL,?,?,?,?,?)",(cid,t,desc,datetime.now().isoformat(),user))
+def add_incident(cid,t,d,u):
+    connect().cursor().execute("INSERT INTO incidents VALUES (NULL,?,?,?,?,?)",(cid,t,d,datetime.now().isoformat(),u))
     connect().commit()
 
 def get_incidents(cid):
     return connect().cursor().execute("SELECT * FROM incidents WHERE child_id=? ORDER BY time DESC",(cid,)).fetchall()
+
+def get_today_logs(cid):
+    today = datetime.now().date().isoformat()
+    return connect().cursor().execute("""
+    SELECT m.name,l.time_given,l.given_by
+    FROM logs l JOIN meds m ON l.med_id=m.id
+    WHERE m.child_id=? AND DATE(l.time_given)=?
+    """,(cid,today)).fetchall()
+
+def get_today_incidents(cid):
+    today = datetime.now().date().isoformat()
+    return connect().cursor().execute("""
+    SELECT type,description,time
+    FROM incidents
+    WHERE child_id=? AND DATE(time)=?
+    """,(cid,today)).fetchall()
+
+def get_med_library():
+    return connect().cursor().execute("SELECT * FROM med_library").fetchall()
+
+def add_med_to_library(n,u):
+    try:
+        connect().cursor().execute("INSERT INTO med_library (name,unit) VALUES (?,?)",(n,u))
+        connect().commit()
+    except: pass
