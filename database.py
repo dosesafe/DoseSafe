@@ -11,7 +11,6 @@ def create_tables():
     conn = connect()
     c = conn.cursor()
 
-    # CHILDREN
     c.execute("""
     CREATE TABLE IF NOT EXISTS children (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -23,7 +22,6 @@ def create_tables():
     )
     """)
 
-    # MEDS
     c.execute("""
     CREATE TABLE IF NOT EXISTS meds (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -35,7 +33,6 @@ def create_tables():
     )
     """)
 
-    # LOGS
     c.execute("""
     CREATE TABLE IF NOT EXISTS logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -45,7 +42,6 @@ def create_tables():
     )
     """)
 
-    # STAFF
     c.execute("""
     CREATE TABLE IF NOT EXISTS staff (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -56,7 +52,6 @@ def create_tables():
     )
     """)
 
-    # INCIDENTS
     c.execute("""
     CREATE TABLE IF NOT EXISTS incidents (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -68,7 +63,6 @@ def create_tables():
     )
     """)
 
-    # ALLERGIES
     c.execute("""
     CREATE TABLE IF NOT EXISTS allergies (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -76,7 +70,6 @@ def create_tables():
     )
     """)
 
-    # CHILD ALLERGIES
     c.execute("""
     CREATE TABLE IF NOT EXISTS child_allergies (
         child_id INTEGER,
@@ -84,7 +77,6 @@ def create_tables():
     )
     """)
 
-    # MED LIBRARY
     c.execute("""
     CREATE TABLE IF NOT EXISTS med_library (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -93,7 +85,6 @@ def create_tables():
     )
     """)
 
-    # SUBSCRIPTIONS
     c.execute("""
     CREATE TABLE IF NOT EXISTS subscriptions (
         school TEXT PRIMARY KEY,
@@ -103,24 +94,15 @@ def create_tables():
     """)
 
     # DEFAULT DATA
-    defaults = ["Peanuts", "Dairy", "Eggs", "Gluten"]
-    for a in defaults:
+    for a in ["Peanuts","Dairy","Eggs","Gluten"]:
         try:
-            c.execute("INSERT INTO allergies (name) VALUES (?)", (a,))
-        except:
-            pass
+            c.execute("INSERT INTO allergies (name) VALUES (?)",(a,))
+        except: pass
 
-    meds = [
-        ("Panado", "ml"),
-        ("Nurofen", "ml"),
-        ("Plaster", "unit"),
-        ("Burnshield", "n/a")
-    ]
-    for m in meds:
+    for m in [("Panado","ml"),("Nurofen","ml"),("Plaster","unit"),("Burnshield","n/a")]:
         try:
-            c.execute("INSERT INTO med_library (name, unit) VALUES (?, ?)", m)
-        except:
-            pass
+            c.execute("INSERT INTO med_library (name, unit) VALUES (?,?)",m)
+        except: pass
 
     conn.commit()
     conn.close()
@@ -131,10 +113,8 @@ def create_tables():
 def set_subscription(school, status, expiry):
     conn = connect()
     c = conn.cursor()
-    c.execute("""
-        INSERT OR REPLACE INTO subscriptions (school, status, expiry_date)
-        VALUES (?, ?, ?)
-    """, (school, status, expiry))
+    c.execute("INSERT OR REPLACE INTO subscriptions VALUES (?,?,?)",
+              (school, status, expiry))
     conn.commit()
     conn.close()
 
@@ -150,7 +130,8 @@ def get_subscription(school):
 def add_staff(name, pin, school):
     conn = connect()
     c = conn.cursor()
-    c.execute("INSERT INTO staff (name, pin, school) VALUES (?,?,?)", (name, pin, school))
+    c.execute("INSERT INTO staff (name, pin, school) VALUES (?,?,?)",
+              (name, pin, school))
     conn.commit()
     conn.close()
 
