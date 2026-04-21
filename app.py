@@ -40,13 +40,12 @@ if mode == "Admin":
         st.stop()
 
     show_disclaimer(u, "admin")
+
 if st.sidebar.button("🚪 Logout", key="admin_logout"):
     st.session_state.clear()
     st.rerun()
     
 st.title("Admin Panel")
-
-st.stop()
 
 # -------------------------
 # CREATE SCHOOL + STAFF
