@@ -35,9 +35,9 @@ You accept full responsibility.
 # ================= ADMIN =================
 if mode == "Admin":
     u = st.sidebar.text_input("Admin Username")
-    p = st.sidebar.text_input("PIN", type="password")
+    admin_pin = st.sidebar.text_input("PIN", type="password", key="admin_pin")
 
-    if u != "Admin" or p != "1234":
+    if u != "Admin" or admin_pin != "1234":
         st.stop()
 
     show_disclaimer(u, "admin")
@@ -114,9 +114,9 @@ else:
 # ================= PARENT =================
 if mode == "Parent":
     n = st.sidebar.text_input("Name")
-    p = st.sidebar.text_input("PIN", type="password")
+    parent_pin = st.sidebar.text_input("PIN", type="password", key="parent_pin")
 
-    r = verify_parent(n,p)
+    r = verify_parent(n, parent_pin)
     if not r:
         st.stop()
 
@@ -134,9 +134,9 @@ if mode == "Parent":
 # ================= STAFF =================
 school = st.sidebar.selectbox("School", get_schools())
 staff = st.sidebar.text_input("Name")
-pin = st.sidebar.text_input("PIN", type="password")
+staff_pin = st.sidebar.text_input("PIN", type="password", key="staff_pin")
 
-if not verify_staff(staff,pin,school):
+if not verify_staff(staff, staff_pin, school):
     st.stop()
 
 show_disclaimer(staff,"staff")
@@ -170,9 +170,9 @@ for m in get_meds(cid):
 # ADD MED
 st.markdown("### Add Medication")
 
-mode = st.radio("Type",["Library","Custom"])
+med_mode = st.radio("Type",["Library","Custom"])
 
-if mode=="Library":
+if med_mode=="Library":
     lib=get_med_library()
     lmap={f"{x[1]} ({x[2]})":x for x in lib}
 
