@@ -275,3 +275,16 @@ def get_subscription(school):
     result = c.fetchone()
     conn.close()
     return result
+
+def get_all_subscriptions():
+    conn = connect()
+    c = conn.cursor()
+
+    c.execute("""
+        SELECT school, status, expiry_date
+        FROM subscriptions
+    """)
+
+    data = c.fetchall()
+    conn.close()
+    return data
