@@ -228,20 +228,42 @@ elif mode == "School Staff":
     cid = cmap[sel_child]
 
     # MEDS
-    for m in get_meds(cid):
-        mid,_,name,dose,interval,unit = m
-        st.subheader(name)
+for m in get_meds(cid):
+    mid,_,name,dose,interval,unit = m
+    st.subheader(name)
 
-        last = get_last_dose_full(mid)
+    last = get_last_dose_full(mid)
+    now = datetime.now()
 
-        if last:
-            last_time = datetime.fromisoformat(last[0])
-            next_time = last_time + timedelta(hours=interval)
+    if last:
+        last_time = datetime.fromisoformat(last[0])
+        next_time = last_time + timedelta(hours=interval)
 
-            st.write(f"Last: {last_time.strftime('%H:%M')}")
-            st.write(f"Next: {next_time.strftime('%H:%M')}")
+        st.write(f"🕒 Last: {last_time.strftime('%H:%M')} (by {last[1]})")
+        st.write(f"⏭️ Next: {next_time.strftime('%H:%M')}")
 
-        if st.button(f"Give {name}", key=f"give_{mid}"):
+        if now < next_time:
+            remaining = next_time - now
+
+            hours = remaining.seconds // 3600
+            minutes = (remaining.seconds % 3600) // 60
+
+            st.error(f"❌ Too soon ({hours}h {minutes}m remaining)")
+
+            # 🚫 HARD BLOCK
+            st.button(f"💊 Give {name}", key=f"blocked_{mid}", disabled=True)
+
+        else:
+            st.success("✅ Safe to give")
+
+            if st.button(f"💊 Give {name}", key=f"give_{mid}"):
+                log_dose(mid, staff)
+                st.rerun()
+
+    else:
+        st.info("No doses recorded yet")
+
+        if st.button(f"💊 Give {name}", key=f"first_{mid}"):
             log_dose(mid, staff)
             st.rerun()
 
