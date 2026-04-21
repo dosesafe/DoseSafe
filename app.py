@@ -4,19 +4,24 @@ from database import *
 
 st.set_page_config(page_title="DoseSafe", layout="centered")
 
-# UI STYLE (button polish)
+# -------------------------
+# UI STYLING
+# -------------------------
 st.markdown("""
 <style>
 div.stButton > button {
     height: 50px;
     font-size: 16px;
 }
+.block-container {
+    padding-top: 2rem;
+}
 </style>
 """, unsafe_allow_html=True)
 
 create_tables()
 
-ADMIN_PIN = "3434"
+ADMIN_PIN = "9999"
 
 st.title("DoseSafe")
 st.caption("Safe medicine tracking for children")
@@ -134,6 +139,21 @@ if selected == "--":
 
 cid = child_map[selected]
 
+selected_child_data = next(c for c in children if c[0] == cid)
+
+# -------------------------
+# CHILD HEADER
+# -------------------------
+st.markdown(f"## 👶 {selected_child_data[1]} {selected_child_data[2]}")
+st.caption(f"DOB: {selected_child_data[3]}")
+
+# ALLERGIES
+allergies = get_child_allergies(cid)
+if allergies:
+    st.error(f"🚨 ALLERGIES: {', '.join(allergies)}")
+
+st.divider()
+
 # -------------------------
 # MEDICATION (CARD UI)
 # -------------------------
@@ -151,48 +171,58 @@ for m in meds:
 
     status = "info"
     status_text = "No doses yet"
+    color = "#f0f2f6"
 
     if last:
         last_time = datetime.fromisoformat(last)
         next_time = last_time + timedelta(hours=interval)
+        now = datetime.now()
 
-        if datetime.now() < next_time:
-            diff = next_time - datetime.now()
-            seconds = int(diff.total_seconds())
+        diff = next_time - now
+        seconds = int(diff.total_seconds())
 
+        if now < next_time:
             hours = seconds // 3600
             minutes = (seconds % 3600) // 60
 
-            if hours > 0:
+            if seconds > 1800:
                 status = "error"
                 status_text = f"❌ Too soon ({hours}h {minutes}m)"
+                color = "#ffe6e6"
             else:
-                status = "error"
-                status_text = f"❌ Too soon ({minutes} min)"
+                status = "warning"
+                status_text = f"⚠️ Due soon ({minutes} min)"
+                color = "#fff4cc"
         else:
             status = "success"
             status_text = "✅ Safe to give"
+            color = "#e6ffe6"
 
-    with st.container():
-        col1, col2 = st.columns([3,1])
+    st.markdown(f"""
+        <div style="background:{color}; padding:15px; border-radius:10px; margin-bottom:10px;">
+    """, unsafe_allow_html=True)
 
-        with col1:
-            st.subheader(name)
-            st.caption(f"{dose} • every {interval} hrs")
+    col1, col2 = st.columns([3,1])
 
-            if status == "success":
-                st.success(status_text)
-            elif status == "error":
-                st.error(status_text)
-            else:
-                st.info(status_text)
+    with col1:
+        st.subheader(name)
+        st.caption(f"{dose} • every {interval} hrs")
 
-        with col2:
-            if st.button("💊 Give", key=f"give_{mid}", use_container_width=True):
-                log_dose(mid, staff_name)
-                st.rerun()
+        if status == "success":
+            st.success(status_text)
+        elif status == "error":
+            st.error(status_text)
+        elif status == "warning":
+            st.warning(status_text)
+        else:
+            st.info(status_text)
 
-    st.divider()
+    with col2:
+        if st.button("💊 Give", key=f"give_{mid}", use_container_width=True):
+            log_dose(mid, staff_name)
+            st.rerun()
+
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # ADD MED
 with st.expander("➕ Add Medicine"):
