@@ -4,151 +4,141 @@ from database import *
 
 st.set_page_config(page_title="DoseSafe", layout="centered")
 
-col1, col2 = st.columns([1, 4])
-
-with col1:
-    st.image("DoseSafe.png", width=300)
-
-with col2:
-    st.title("DoseSafe")
-    st.caption("Safe medicine tracking for children")
-
 create_tables()
 
-# -------------------------
-# SIDEBAR - ADD CHILD
-# -------------------------
-with st.sidebar:
-    st.header("👶 Add Child")
+st.title("DoseSafe")
+st.caption("Safe medicine tracking for children")
 
+# SCHOOL
+children = get_children()
+schools = sorted(list(set([c[4] for c in children if c[4]])))
+
+selected_school = st.selectbox("🏫 Select School", ["-- Select School --"] + schools)
+
+if selected_school == "-- Select School --":
+    st.stop()
+
+# STAFF LOGIN
+staff_list = get_staff_by_school(selected_school)
+staff_names = [s[1] for s in staff_list]
+
+staff_name = st.selectbox("Staff", ["-- Select --"] + staff_names)
+staff_pin = st.text_input("PIN", type="password")
+
+if staff_name == "-- Select --" or not staff_pin:
+    st.stop()
+
+if not verify_staff_pin(staff_name, staff_pin, selected_school):
+    st.error("Invalid PIN")
+    st.stop()
+
+st.success(f"Logged in as {staff_name}")
+
+# ADD CHILD
+with st.sidebar:
     name = st.text_input("First Name")
     surname = st.text_input("Surname")
-    dob = st.date_input("Date of Birth")
-    school = st.text_input("School")
+    dob = st.date_input("DOB")
+
+    allergy_data = get_allergies()
+    allergy_map = {a[1]: a[0] for a in allergy_data}
+
+    selected_allergies = st.multiselect("Allergies", list(allergy_map.keys()))
 
     if st.button("Add Child"):
-        if name and surname:
-            add_child(name, surname, str(dob), school)
-            st.success("Child added")
-            st.rerun()
+        child_id = add_child(name, surname, str(dob), selected_school)
 
-# -------------------------
-# SELECT CHILD + SEARCH
-# -------------------------
-children = get_children()
+        if child_id:
+            add_child_allergies(child_id, [allergy_map[a] for a in selected_allergies])
+            st.success("Added")
+        else:
+            st.warning("Exists")
 
-if not children:
-    st.info("Add a child to get started")
-    st.stop()
-
-# 🔍 SEARCH BOX (ADD HERE)
-search = st.text_input("🔍 Search child (name or surname)")
-
-# FILTER
-if search:
-    filtered_children = [
-        c for c in children
-        if search.lower() in (c[1] + " " + c[2]).lower()
-    ]
-else:
-    filtered_children = children
-
-if not filtered_children:
-    st.warning("No matching children found")
-    st.stop()
-
-# DISPLAY LIST
-child_display = [
-    f"{c[1]} {c[2]} ({c[3]})" for c in filtered_children
-]
-
-selected_display = st.selectbox("Select Child", child_display)
-
-selected_child = next(
-    c for c in filtered_children
-    if f"{c[1]} {c[2]} ({c[3]})" == selected_display
-)
-
-child_id = selected_child[0]
-
-# -------------------------
-# ADD MED
-# -------------------------
-with st.expander("➕ Add Medicine"):
-    med_name = st.text_input("Medicine name")
-    dosage = st.text_input("Dosage")
-    interval = st.number_input("Hours between doses", min_value=1)
-
-    if st.button("Add Medicine"):
-        add_med(child_id, med_name, dosage, interval)
-        st.success("Medicine added")
         st.rerun()
 
-# -------------------------
-# SHOW MEDS
-# -------------------------
-st.header("Today's Doses")
-given_by = st.text_input("👩‍⚕️ Who is giving the medication?")
+# FILTER CHILDREN
+children = [c for c in children if c[4] == selected_school]
+
+child_options = {f"{c[1]} {c[2]} ({c[3]})": c[0] for c in children}
+
+selected = st.selectbox("Select Child", ["-- Select --"] + list(child_options.keys()))
+
+if selected == "-- Select --":
+    st.stop()
+
+child_id = child_options[selected]
+
+# ALLERGIES
+allergies = get_child_allergies(child_id)
+if allergies:
+    st.error(f"⚠️ Allergies: {', '.join(allergies)}")
+
+# MEDS
+with st.expander("Add Medicine"):
+    name = st.text_input("Med")
+    dose = st.text_input("Dose")
+    interval = st.number_input("Interval", min_value=1)
+
+    if st.button("Add Med"):
+        add_med(child_id, name, dose, interval)
+        st.rerun()
 
 meds = get_meds_by_child(child_id)
 
-if not meds:
-    st.info("No medicines for this child yet")
-
 for med in meds:
-    id, child_id, name, dosage, interval = med
+    med_id, _, name, dose, interval = med
 
     st.subheader(name)
-    st.caption(f"{dosage} • every {interval} hrs")
 
-    last = get_last_dose(id)
+    last = get_last_dose(med_id)
 
     if last:
         last_time = datetime.fromisoformat(last)
         next_time = last_time + timedelta(hours=interval)
-        now = datetime.now()
 
-        minutes_ago = int((now - last_time).total_seconds() / 60)
-
-        st.write(f"🕒 Last given: {last_time.strftime('%H:%M')} ({minutes_ago} min ago)")
-
-        # ✅ ALWAYS show next dose time
-        st.write(f"⏭️ Next dose at: {next_time.strftime('%H:%M')}")
-
-        # Status indicator
-        if now < next_time:
-            remaining_seconds = int((next_time - now).total_seconds())
-
-            hours = remaining_seconds // 3600
-            minutes = (remaining_seconds % 3600) // 60
-
-            if hours > 0:
-                st.error(f"❌ Too soon ({hours}h {minutes}m remaining)")
-            else:
-                st.error(f"❌ Too soon ({minutes} min remaining)")
+        if datetime.now() < next_time:
+            st.error("Too soon")
         else:
-            st.success("✅ Safe to give now")
+            st.success("Safe")
 
-    else:
-        st.info("No doses recorded yet")
+    if st.button(f"Give {name}", key=f"g{med_id}"):
+        log_dose(med_id, datetime.now().isoformat(), staff_name)
+        st.rerun()
 
-    if st.button(f"💊 Give {name}", key=id, use_container_width=True):
-        if not given_by:
-            st.warning("Please enter who is giving the medication")
-        else:
-            log_dose(id, datetime.now().isoformat(), given_by)
-            st.rerun()
-        
-    with st.expander("📋 Dose History"):
-        logs = get_logs_by_med(id)
+# INCIDENTS
+st.header("Incidents")
 
-        if not logs:
-            st.write("No history yet")
-        else:
-            for log in logs:
-                time_given = datetime.fromisoformat(log[0])
-                given_by_name = log[1] if log[1] else "Unknown"
+with st.expander("Log Incident"):
+    itype = st.selectbox("Type", ["Injury", "Illness", "Allergic Reaction", "Other"])
+    desc = st.text_area("Description")
 
-                st.write(f"💊 {time_given.strftime('%d %b %H:%M')} – 👩‍⚕️ {given_by_name}")    
+    if st.button("Log"):
+        add_incident(child_id, itype, desc, datetime.now().isoformat(), staff_name)
+        st.rerun()
 
-    st.divider()
+for i in get_incidents(child_id):
+    t = datetime.fromisoformat(i[2])
+    st.write(f"{i[0]} - {t.strftime('%H:%M')}")
+    st.caption(i[1])
+
+# DAILY REPORT
+st.header("Daily Report")
+
+if st.button("Generate Report"):
+    logs = get_today_logs(child_id)
+    incs = get_today_incidents(child_id)
+
+    report = []
+
+    report.append("MEDICATION:")
+    for l in logs:
+        t = datetime.fromisoformat(l[1])
+        report.append(f"{l[0]} {t.strftime('%H:%M')} ({l[2]})")
+
+    report.append("")
+    report.append("INCIDENTS:")
+    for i in incs:
+        t = datetime.fromisoformat(i[2])
+        report.append(f"{i[0]} {t.strftime('%H:%M')} - {i[1]}")
+
+    st.text_area("Report", "\n".join(report), height=300)
