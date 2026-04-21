@@ -62,16 +62,37 @@ if mode == "Admin":
     st.title("Admin Panel")
 
     # CREATE SCHOOL
-    school = st.text_input("School")
+    schools = get_schools()
+
+    st.subheader("Create School + Staff")
+    
+    existing_school = st.selectbox(
+        "Select Existing School",
+        ["-- New School --"] + schools
+    )
+    
+    new_school = st.text_input("Or Enter New School")
+    
     staff = st.text_input("Staff Name")
     pin = st.text_input("Staff PIN")
-
+    
+    # Decide which school to use
+    school = new_school if new_school else existing_school
+    
     if st.button("Create School + Staff"):
+    
+        if school == "-- New School --" and not new_school:
+            st.warning("Please select or enter a school")
+            st.stop()
+            
+        school = school.strip().title()
+    
         add_staff(staff, pin, school)
         set_subscription(school, "active", "2099-12-31")
-        st.success("Created")
+    
+        st.success(f"{school} created/updated")
         st.rerun()
-
+    
     # STAFF MANAGEMENT
     st.subheader("Staff Management")
     for s in get_all_staff():
@@ -144,50 +165,60 @@ elif mode == "School Staff":
     school = st.session_state["school"]
     staff = st.session_state["user"]
 
-    tabs = st.tabs(["Children","Medication","Incidents","Reports"])
-
-    # ---------- CHILDREN ----------
-    with tabs[0]:
-        st.subheader("Add Child")
-
-        name = st.text_input("First Name")
-        surname = st.text_input("Surname")
-        dob = st.date_input("DOB")
-        parent_name = st.text_input("Parent Name")
-        parent_phone = st.text_input("Parent Phone")
-
-        if st.button("Add Child"):
-            add_child(name,surname,str(dob),school,parent_name,parent_phone)
+    # ================= SIDEBAR CHILD CONTROL =================
+    st.sidebar.markdown("### 👶 Child Management")
+    
+    # ADD CHILD
+    with st.sidebar.expander("➕ Add Child"):
+        name = st.text_input("First Name", key="cname")
+        surname = st.text_input("Surname", key="csurname")
+        dob = st.date_input("DOB", key="cdob")
+        parent_name = st.text_input("Parent Name", key="cparent")
+        parent_phone = st.text_input("Parent Phone", key="cphone")
+    
+        if st.button("Add Child", key="add_child_sidebar"):
+            add_child(name, surname, str(dob), school, parent_name, parent_phone)
             st.success("Child added")
             st.rerun()
+    
+    # SEARCH + SELECT
+    children = get_children(school)
+    
+    if children:
+        search = st.sidebar.text_input("🔍 Search Child")
+    
+        filtered = [
+            c for c in children
+            if search.lower() in (c[1] + " " + c[2]).lower()
+        ] if search else children
+    
+        cmap = {f"{c[1]} {c[2]}": c[0] for c in filtered}
+    
+        selected = st.sidebar.selectbox(
+            "Select Child",
+            list(cmap.keys()),
+            key="child_select"
+        )
+            
+        st.session_state["cid"] = cmap[selected]
+        
+        # 👇 ADD THIS HERE
+        cid = st.session_state.get("cid")
 
-        st.divider()
+        if cid:
+            child = next((c for c in children if c[0] == cid), None)
+            if child:
+                st.sidebar.success(f"👶 {child[1]} {child[2]}")
 
-        children = get_children(school)
 
-        if children:
-            search = st.text_input("Search Child")
-            filtered = [c for c in children if search.lower() in (c[1]+" "+c[2]).lower()] if search else children
-
-            cmap = {f"{c[1]} {c[2]}":c[0] for c in filtered}
-            sel = st.selectbox("Select Child", list(cmap.keys()))
-            cid = cmap[sel]
-            st.session_state["cid"] = cid
-
-            # ALLERGIES
-            st.subheader("Allergies")
-            allg = get_allergies()
-            opts = {a[1]:a[0] for a in allg}
-
-            current = get_child_allergies(cid)
-            sel_a = st.multiselect("Select", list(opts.keys()), default=current)
-
-            if st.button("Save Allergies"):
-                set_child_allergies(cid,[opts[s] for s in sel_a])
-                st.success("Saved")
+   if not children:
+        st.warning("No children found")
+        st.stop() 
+       
+    tabs = st.tabs(["Medication","Incidents","Reports"])
 
     # ---------- MEDICATION ----------
-    with tabs[1]:
+    with tabs[0]:
         cid = st.session_state.get("cid")
 
         if not cid:
@@ -238,27 +269,30 @@ elif mode == "School Staff":
             if last:
                 lt = datetime.fromisoformat(last[0])
                 nt = lt + timedelta(hours=interval)
-
+            
                 st.write(f"Last: {lt.strftime('%H:%M')} ({last[1]})")
                 st.write(f"Next: {nt.strftime('%H:%M')}")
-
+            
                 if now < nt:
-                    rem = nt-now
-                    h = rem.seconds//3600
-                    m = (rem.seconds%3600)//60
-                    st.error(f"❌ Too soon ({h}h {m}m)")
+                    rem = nt - now
+                    h = rem.seconds // 3600
+                    m = (rem.seconds % 3600) // 60
+                    st.error(f"❌ Too soon ({h}h {m}m remaining)")
                 else:
                     if st.button("Give", key=f"give{mid}"):
-                        log_dose(mid,staff)
+                        log_dose(mid, staff)
                         st.rerun()
             else:
                 if st.button("Give First Dose", key=f"first{mid}"):
-                    log_dose(mid,staff)
+                    log_dose(mid, staff)
                     st.rerun()
 
     # ---------- INCIDENTS ----------
-    with tabs[2]:
+    with tabs[1]:
         cid = st.session_state.get("cid")
+        if not cid:
+            st.warning("Select a child first")
+            st.stop()
 
         t = st.selectbox("Type",["Injury","Illness","Allergic Reaction"])
         d = st.text_input("Description")
@@ -268,7 +302,7 @@ elif mode == "School Staff":
             st.success("Logged")
 
     # ---------- REPORT ----------
-    with tabs[3]:
+    with tabs[2]:
         cid = st.session_state.get("cid")
 
         if st.button("Generate Report"):
@@ -282,7 +316,7 @@ elif mode == "School Staff":
                 out.append(f"💊 {l[0]} — {t} ({l[2]})")
 
             for i in incs:
-                t = datetime.fromisoformat(i[0]).strftime('%H:%M')
+                t = datetime.fromisoformat(i[1]).strftime('%H:%M')
                 out.append(f"⚠️ {t} — {i[2]}")
 
             st.text_area("Report","\n".join(out), height=300)
@@ -366,7 +400,7 @@ elif mode == "Parent":
             out.append(f"💊 {l[0]} — {t} ({l[2]})")
 
         for i in incs:
-            t = datetime.fromisoformat(i[0]).strftime('%H:%M')
+            t = datetime.fromisoformat(i[1]).strftime('%H:%M')
             out.append(f"⚠️ {t} — {i[2]}")
 
         st.text_area("Report","\n".join(out), height=300)
