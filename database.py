@@ -8,136 +8,81 @@ def create_tables():
     conn = connect()
     c = conn.cursor()
 
-    # CHILDREN
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS children (
+    c.execute("""CREATE TABLE IF NOT EXISTS children (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT,
         surname TEXT,
         dob TEXT,
         school TEXT
-    )
-    """)
+    )""")
 
-    # MEDS
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS meds (
+    c.execute("""CREATE TABLE IF NOT EXISTS meds (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         child_id INTEGER,
         name TEXT,
         dosage TEXT,
         interval INTEGER,
         unit TEXT
-    )
-    """)
+    )""")
 
-    # MIGRATION SAFE
-    c.execute("PRAGMA table_info(meds)")
-    cols = [col[1] for col in c.fetchall()]
-    if "unit" not in cols:
-        c.execute("ALTER TABLE meds ADD COLUMN unit TEXT DEFAULT ''")
-
-    # LOGS
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS logs (
+    c.execute("""CREATE TABLE IF NOT EXISTS logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         med_id INTEGER,
         time_given TEXT,
         given_by TEXT
-    )
-    """)
+    )""")
 
-    # STAFF
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS staff (
+    c.execute("""CREATE TABLE IF NOT EXISTS staff (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT,
         pin TEXT,
         school TEXT,
         active INTEGER DEFAULT 1
-    )
-    """)
+    )""")
 
-    # INCIDENTS
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS incidents (
+    c.execute("""CREATE TABLE IF NOT EXISTS incidents (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         child_id INTEGER,
         type TEXT,
         description TEXT,
         time TEXT,
         reported_by TEXT
-    )
-    """)
+    )""")
 
-    # ALLERGIES
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS allergies (
+    c.execute("""CREATE TABLE IF NOT EXISTS allergies (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT UNIQUE
-    )
-    """)
+    )""")
 
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS child_allergies (
+    c.execute("""CREATE TABLE IF NOT EXISTS child_allergies (
         child_id INTEGER,
         allergy_id INTEGER
-    )
-    """)
+    )""")
 
-    # MED LIBRARY
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS med_library (
+    c.execute("""CREATE TABLE IF NOT EXISTS med_library (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT UNIQUE,
         unit TEXT
-    )
-    """)
+    )""")
 
-    # SUBSCRIPTIONS
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS subscriptions (
+    c.execute("""CREATE TABLE IF NOT EXISTS subscriptions (
         school TEXT PRIMARY KEY,
         status TEXT,
         expiry_date TEXT
-    )
-    """)
+    )""")
 
-    # PARENTS
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS parents (
+    c.execute("""CREATE TABLE IF NOT EXISTS parents (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT,
         pin TEXT,
         child_id INTEGER
-    )
-    """)
+    )""")
 
-    # DISCLAIMER
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS disclaimer_acceptance (
+    c.execute("""CREATE TABLE IF NOT EXISTS disclaimer_acceptance (
         user TEXT,
         role TEXT,
         accepted INTEGER
-    )
-    """)
-
-    # DEFAULT ALLERGIES
-    defaults = [
-        "Peanuts","Dairy","Eggs","Gluten",
-        "Penicillin","Bee stings","Latex","Soy","Shellfish"
-    ]
-    for a in defaults:
-        try:
-            c.execute("INSERT INTO allergies (name) VALUES (?)",(a,))
-        except: pass
-
-    # DEFAULT MEDS
-    meds = [("Panado","ml"),("Nurofen","ml"),("Calpol","ml")]
-    for m in meds:
-        try:
-            c.execute("INSERT INTO med_library (name, unit) VALUES (?,?)",m)
-        except: pass
+    )""")
 
     conn.commit()
     conn.close()
@@ -149,9 +94,9 @@ def has_accepted_disclaimer(user, role):
     conn = connect()
     c = conn.cursor()
     c.execute("SELECT accepted FROM disclaimer_acceptance WHERE user=? AND role=?", (user, role))
-    result = c.fetchone()
+    r = c.fetchone()
     conn.close()
-    return result and result[0] == 1
+    return r and r[0] == 1
 
 def accept_disclaimer(user, role):
     conn = connect()
@@ -161,51 +106,11 @@ def accept_disclaimer(user, role):
     conn.close()
 
 # -------------------------
-# ALLERGY SYSTEM
-# -------------------------
-def get_allergies():
-    return connect().cursor().execute("SELECT id,name FROM allergies").fetchall()
-
-def add_child_allergies(cid,aids):
-    conn = connect()
-    c = conn.cursor()
-    for a in aids:
-        c.execute("INSERT INTO child_allergies VALUES (?,?)",(cid,a))
-    conn.commit()
-
-def get_child_allergies(cid):
-    c = connect().cursor()
-    c.execute("""
-        SELECT a.name FROM allergies a
-        JOIN child_allergies ca ON a.id = ca.allergy_id
-        WHERE ca.child_id=?
-    """,(cid,))
-    return [x[0] for x in c.fetchall()]
-
-def get_allergy_warnings():
-    return {
-        "Penicillin": {"match": ["amoxicillin","penicillin"], "type": "block"}
-    }
-
-def check_med_allergy(cid, med):
-    allergies = get_child_allergies(cid)
-    rules = get_allergy_warnings()
-    med = med.lower()
-
-    for a in allergies:
-        if a in rules:
-            for k in rules[a]["match"]:
-                if k in med:
-                    return "block", a
-    return None, None
-
-# -------------------------
-# CORE FUNCTIONS
+# BASIC FUNCTIONS
 # -------------------------
 def add_staff(n,p,s):
-    conn = connect()
-    conn.cursor().execute("INSERT INTO staff (name,pin,school) VALUES (?,?,?)",(n,p,s))
-    conn.commit()
+    connect().cursor().execute("INSERT INTO staff (name,pin,school) VALUES (?,?,?)",(n,p,s))
+    connect().commit()
 
 def get_schools():
     c = connect().cursor()
@@ -218,9 +123,7 @@ def verify_staff(n,p,s):
     return c.fetchone()
 
 def get_staff_by_school(s):
-    c = connect().cursor()
-    c.execute("SELECT id,name FROM staff WHERE school=? AND active=1",(s,))
-    return c.fetchall()
+    return connect().cursor().execute("SELECT id,name FROM staff WHERE school=? AND active=1",(s,)).fetchall()
 
 def add_child(n,s,d,sc):
     conn = connect()
@@ -231,6 +134,16 @@ def add_child(n,s,d,sc):
 
 def get_children(sc):
     return connect().cursor().execute("SELECT * FROM children WHERE school=?",(sc,)).fetchall()
+
+def get_allergies():
+    return connect().cursor().execute("SELECT id,name FROM allergies").fetchall()
+
+def add_child_allergies(cid,aids):
+    conn = connect()
+    c = conn.cursor()
+    for a in aids:
+        c.execute("INSERT INTO child_allergies VALUES (?,?)",(cid,a))
+    conn.commit()
 
 def add_med(cid,n,d,i,u):
     connect().cursor().execute("INSERT INTO meds VALUES (NULL,?,?,?,?,?)",(cid,n,d,i,u))
@@ -265,8 +178,7 @@ def get_today_incidents(cid):
     today = datetime.now().date().isoformat()
     return connect().cursor().execute("""
     SELECT type,description,time
-    FROM incidents
-    WHERE child_id=? AND DATE(time)=?
+    FROM incidents WHERE child_id=? AND DATE(time)=?
     """,(cid,today)).fetchall()
 
 def get_med_library():
@@ -277,3 +189,13 @@ def add_med_to_library(n,u):
         connect().cursor().execute("INSERT INTO med_library (name,unit) VALUES (?,?)",(n,u))
         connect().commit()
     except: pass
+
+def add_parent(n,p,c):
+    connect().cursor().execute("INSERT INTO parents VALUES (NULL,?,?,?)",(n,p,c))
+    connect().commit()
+
+def verify_parent(n,p):
+    return connect().cursor().execute("SELECT child_id FROM parents WHERE name=? AND pin=?",(n,p)).fetchone()
+
+def get_logs_by_med(mid):
+    return connect().cursor().execute("SELECT time_given,given_by FROM logs WHERE med_id=?",(mid,)).fetchall()
