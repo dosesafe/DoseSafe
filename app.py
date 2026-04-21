@@ -40,10 +40,40 @@ if mode == "Admin":
     if u != "Admin" or p != "1234":
         st.stop()
 
-    show_disclaimer(u,"admin")
+    show_disclaimer(u, "admin")
 
     st.title("Admin Panel")
-    st.write(get_schools())
+
+    # -------------------------
+    # ADD SCHOOL + STAFF
+    # -------------------------
+    st.subheader("➕ Create School & First Staff")
+
+    new_school = st.text_input("School Name")
+    new_staff = st.text_input("Staff Name")
+    new_pin = st.text_input("Staff PIN")
+
+    if st.button("Create School"):
+        if new_school and new_staff and new_pin:
+            add_staff(new_staff, new_pin, new_school)
+            st.success("School + Staff created")
+            st.rerun()
+        else:
+            st.warning("Fill all fields")
+
+    # -------------------------
+    # VIEW EXISTING
+    # -------------------------
+    st.subheader("🏫 Schools")
+
+    schools = get_schools()
+
+    if not schools:
+        st.warning("No schools yet")
+    else:
+        for s in schools:
+            st.write(s)
+
     st.stop()
 
 # ================= PARENT =================
