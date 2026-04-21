@@ -8,6 +8,13 @@ create_tables()
 st.sidebar.title("DoseSafe")
 
 # -------------------------
+# AUTO CREATE ADMIN (SAFE)
+# -------------------------
+if not verify_staff("Admin", "1234", "System"):
+    add_staff("Admin", "1234", "System")
+    set_subscription("System", "active", "2099-12-31")
+
+# -------------------------
 # LOGIN
 # -------------------------
 schools = get_schools()
@@ -30,13 +37,13 @@ if not verify_staff(staff, pin, school):
     st.stop()
 
 # -------------------------
-# SUBSCRIPTION CHECK
+# SUBSCRIPTION AUTO FIX
 # -------------------------
 sub = get_subscription(school)
 
 if not sub:
-    st.error("No active subscription")
-    st.stop()
+    set_subscription(school, "active", "2099-12-31")
+    sub = get_subscription(school)
 
 status, expiry = sub
 
@@ -49,7 +56,10 @@ if expiry:
         st.error("Subscription expired")
         st.stop()
 
-is_admin = staff.lower() == "admin"
+# -------------------------
+# ADMIN CHECK
+# -------------------------
+is_admin = staff.lower() == "admin" and school.lower() == "system"
 
 # -------------------------
 # ADD CHILD
@@ -63,7 +73,6 @@ dob = st.sidebar.date_input("DOB")
 
 allergy_data = get_allergies()
 allergy_map = {a[1]: a[0] for a in allergy_data}
-
 selected_allergies = st.sidebar.multiselect("Allergies", list(allergy_map.keys()))
 
 if st.sidebar.button("Add Child"):
@@ -89,7 +98,10 @@ cid = child_map[selected]
 # -------------------------
 # TABS
 # -------------------------
-tab1, tab2, tab3, tab4 = st.tabs(["Medication","Incidents","Reports","Admin"])
+if is_admin:
+    tab1, tab2, tab3, tab4 = st.tabs(["Medication","Incidents","Reports","Admin"])
+else:
+    tab1, tab2, tab3 = st.tabs(["Medication","Incidents","Reports"])
 
 # -------------------------
 # MEDICATION
@@ -162,10 +174,10 @@ with tab3:
         st.text_area("Report", "\n".join(out), height=300)
 
 # -------------------------
-# ADMIN (SUBSCRIPTIONS)
+# ADMIN
 # -------------------------
-with tab4:
-    if is_admin:
+if is_admin:
+    with tab4:
         st.subheader("Subscription Control")
 
         school_name = st.text_input("School Name")
@@ -175,5 +187,3 @@ with tab4:
         if st.button("Update Subscription"):
             set_subscription(school_name, status, str(expiry))
             st.success("Updated")
-    else:
-        st.warning("Admin only")
