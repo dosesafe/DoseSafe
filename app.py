@@ -3,7 +3,15 @@ from datetime import datetime, timedelta
 from database import *
 import pandas as pd
 
-st.set_page_config(page_title="DoseSafe", layout="centered")
+st.set_page_config(
+    page_title="DoseSafe",
+    page_icon="DoseSafe.png",
+    layout="centered"
+)
+
+st.sidebar.image("DoseSafe.png", use_container_width=True)
+st.sidebar.markdown("---")
+
 create_tables()
 
 # ---------------- SESSION RESET ----------------
@@ -14,9 +22,12 @@ if "role" not in st.session_state:
     st.session_state["role"] = None
 
 # ---------------- SIDEBAR ----------------
-st.sidebar.title("DoseSafe")
 
-mode = st.sidebar.selectbox("Login Type", ["School Staff","Admin","Parent"])
+
+mode = st.selectbox(
+    "Select Access",
+    ["School Staff","Admin","Parent"]
+)
 
 # ---------------- LOGOUT ----------------
 def logout():
