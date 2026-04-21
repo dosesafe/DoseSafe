@@ -337,3 +337,8 @@ def get_all_subscriptions():
     return connect().cursor().execute(
         "SELECT school,status,expiry_date FROM subscriptions"
     ).fetchall()
+
+def get_all_children():
+    return connect().cursor().execute(
+        "SELECT * FROM children"
+    ).fetchall()
