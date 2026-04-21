@@ -7,7 +7,7 @@ create_tables()
 
 st.sidebar.title("DoseSafe")
 
-mode = st.sidebar.selectbox("Login Type", ["School Staff","Admin"])
+mode = st.sidebar.selectbox("Login Type", ["School Staff","Admin","Parent"])
 
 # ---------------- DISCLAIMER ----------------
 def show_disclaimer(user, role):
@@ -15,9 +15,7 @@ def show_disclaimer(user, role):
 IMPORTANT DISCLAIMER
 
 DoseSafe is a medication tracking tool only.
-
 All medication must be prescribed by a licensed doctor.
-Warnings must be verified by a healthcare professional.
 
 DoseSafe is NOT liable for:
 - Incorrect medication
@@ -28,25 +26,44 @@ You accept full responsibility.
 """)
 
     if not has_accepted_disclaimer(user, role):
-        agree = st.checkbox("I accept")
-        if agree:
-            if st.button("Accept"):
+        if st.checkbox("I accept"):
+            if st.button("Continue"):
                 accept_disclaimer(user, role)
                 st.rerun()
         st.stop()
 
 # ================= ADMIN =================
 if mode == "Admin":
-    user = st.sidebar.text_input("Admin Username")
-    pin = st.sidebar.text_input("PIN", type="password")
+    u = st.sidebar.text_input("Admin Username")
+    p = st.sidebar.text_input("PIN", type="password")
 
-    if user != "Admin" or pin != "1234":
+    if u != "Admin" or p != "1234":
         st.stop()
 
-    show_disclaimer(user,"admin")
+    show_disclaimer(u,"admin")
 
     st.title("Admin Panel")
     st.write(get_schools())
+    st.stop()
+
+# ================= PARENT =================
+if mode == "Parent":
+    n = st.sidebar.text_input("Name")
+    p = st.sidebar.text_input("PIN", type="password")
+
+    r = verify_parent(n,p)
+    if not r:
+        st.stop()
+
+    show_disclaimer(n,"parent")
+
+    cid = r[0]
+
+    st.title("Parent Dashboard")
+
+    for m in get_meds(cid):
+        st.write(m[2])
+
     st.stop()
 
 # ================= STAFF =================
@@ -63,21 +80,14 @@ st.title("DoseSafe")
 
 children = get_children(school)
 cmap = {f"{c[1]} {c[2]}":c[0] for c in children}
+
 sel = st.selectbox("Child", cmap.keys())
 cid = cmap[sel]
 
-# ---------------- MEDS ----------------
+# MEDS
 for m in get_meds(cid):
     mid,_,name,dose,interval,unit = m
-
     st.subheader(name)
-
-    alert, allergy = check_med_allergy(cid,name)
-    can_give = True
-
-    if alert == "block":
-        st.error(f"🚫 BLOCKED: {allergy}")
-        can_give = False
 
     last = get_last_dose_full(mid)
 
@@ -85,21 +95,14 @@ for m in get_meds(cid):
         last_time = datetime.fromisoformat(last[0])
         next_time = last_time + timedelta(hours=interval)
 
-        st.write(f"Last: {last_time.strftime('%H:%M')} ({last[1]})")
+        st.write(f"Last: {last_time.strftime('%H:%M')}")
         st.write(f"Next: {next_time.strftime('%H:%M')}")
 
-        if datetime.now() < next_time:
-            st.error("Too soon")
-            can_give = False
+    if st.button(f"Give {name}", key=mid):
+        log_dose(mid,staff)
+        st.rerun()
 
-    if can_give:
-        if st.button(f"Give {name}", key=mid):
-            log_dose(mid,staff)
-            st.rerun()
-    else:
-        st.button(f"Give {name}", key=f"d{mid}", disabled=True)
-
-# ---------------- ADD MED ----------------
+# ADD MED
 st.markdown("### Add Medication")
 
 mode = st.radio("Type",["Library","Custom"])
@@ -128,8 +131,9 @@ else:
         add_med_to_library(n,u)
         st.rerun()
 
-# ---------------- INCIDENTS ----------------
+# INCIDENTS
 st.markdown("### Incidents")
+
 t=st.selectbox("Type",["Injury","Illness","Allergic Reaction"])
 d=st.text_input("Description")
 
@@ -137,10 +141,7 @@ if st.button("Log Incident"):
     add_incident(cid,t,d,staff)
     st.rerun()
 
-for i in get_incidents(cid):
-    st.write(i[2],i[3])
-
-# ---------------- REPORT ----------------
+# REPORT
 if st.button("Generate Report"):
     logs=get_today_logs(cid)
     incs=get_today_incidents(cid)
