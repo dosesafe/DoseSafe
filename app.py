@@ -119,60 +119,104 @@ if mode == "Admin":
 
 # ================= PARENT =================
 elif mode == "Parent":
-    name = st.sidebar.text_input("Name", key="parent_name")
-    parent_pin = st.sidebar.text_input("PIN", type="password", key="parent_pin")
 
-    r = verify_parent(name, parent_pin)
-    if not r:
+    parent_mode = st.sidebar.radio("Parent Access", ["Login", "Register"], key="parent_mode")
+
+    # ---------------- LOGIN ----------------
+    if parent_mode == "Login":
+        name = st.sidebar.text_input("Name", key="parent_name")
+        parent_pin = st.sidebar.text_input("PIN", type="password", key="parent_pin")
+
+        r = verify_parent(name, parent_pin)
+
+        if not r:
+            st.warning("Enter valid login details")
+            st.stop()
+
+        show_disclaimer(name, "parent")
+
+        if st.sidebar.button("🚪 Logout", key="parent_logout"):
+            st.session_state.clear()
+            st.rerun()
+
+        parent_plan = "free"
+
+        cid = r[0]
+
+        st.title("Parent Dashboard")
+
+        # MEDS
+        st.markdown("### 💊 Medications")
+        for m in get_meds(cid):
+            mid, _, name, dose, interval, unit = m
+            st.write(f"{name} — {dose} every {interval} hrs")
+
+        # INCIDENTS
+        st.markdown("### ⚠️ Incidents")
+        incs = get_today_incidents(cid)
+        for i in incs:
+            st.write(f"{i[0]} — {i[1]}")
+
+        # REPORT
+        st.markdown("### 📄 Report")
+        if st.button("Generate Report", key="parent_report"):
+            logs = get_today_logs(cid)
+            incs = get_today_incidents(cid)
+
+            out = []
+            for l in logs:
+                out.append(f"{l[0]} {l[1]} {l[2]}")
+
+            for i in incs:
+                out.append(f"{i[0]} {i[1]}")
+
+            st.text_area("Report", "\n".join(out), height=300)
+
+        # LOCKED FEATURES
+        st.markdown("### ➕ Add Medication")
+
+        if parent_plan == "free":
+            st.info("Upgrade to add medications and track doses at home")
+            st.button("Upgrade (Coming Soon)", key="upgrade_btn")
+
         st.stop()
 
-    show_disclaimer(name, "parent")
+    # ---------------- REGISTER ----------------
+    else:
+        st.title("Register as Parent")
 
-    if st.sidebar.button("🚪 Logout", key="parent_logout"):
-        st.session_state.clear()
-        st.rerun()
+        schools = get_schools()
 
-    parent_plan = "free"  # 🔥 CURRENT MODEL
+        if not schools:
+            st.warning("No schools available yet")
+            st.stop()
 
-    cid = r[0]
+        selected_school = st.selectbox("Select School", schools, key="reg_school")
 
-    st.title("Parent Dashboard")
+        children = get_children(selected_school)
 
-    # VIEW MEDS
-    st.markdown("### 💊 Medications")
-    for m in get_meds(cid):
-        mid, _, name, dose, interval, unit = m
-        st.write(f"{name} — {dose} every {interval} hrs")
+        if not children:
+            st.warning("No children found in this school")
+            st.stop()
 
-    # VIEW INCIDENTS
-    st.markdown("### ⚠️ Incidents")
-    incs = get_today_incidents(cid)
-    for i in incs:
-        st.write(f"{i[1]} — {i[2]}")
+        cmap = {
+            f"{c[1]} {c[2]} ({c[3]})": c[0]
+            for c in children
+        }
 
-    # REPORT
-    st.markdown("### 📄 Report")
-    if st.button("Generate Report", key="parent_report"):
-        logs = get_today_logs(cid)
-        incs = get_today_incidents(cid)
+        sel_child = st.selectbox("Select Child", list(cmap.keys()), key="reg_child")
 
-        out = []
-        for l in logs:
-            out.append(f"{l[0]} {l[1]} {l[2]}")
+        parent_name = st.text_input("Your Name", key="reg_name")
+        parent_pin = st.text_input("Create PIN", key="reg_pin")
 
-        for i in incs:
-            out.append(f"{i[0]} {i[2]}")
+        if st.button("Create Account", key="create_parent"):
+            if parent_name and parent_pin:
+                add_parent(parent_name, parent_pin, cmap[sel_child])
+                st.success("Account created! You can now log in.")
+            else:
+                st.warning("Fill all fields")
 
-        st.text_area("Report", "\n".join(out), height=300)
-
-    # 🔒 LOCKED FEATURES
-    st.markdown("### ➕ Add Medication")
-
-    if parent_plan == "free":
-        st.info("Upgrade to add medications and track doses at home")
-        st.button("Upgrade (Coming Soon)", key="upgrade_btn")
-
-    st.stop()
+        st.stop()
 
 # ================= STAFF =================
 elif mode == "School Staff":
