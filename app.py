@@ -149,9 +149,18 @@ elif mode == "Parent":
 
             out = []
             for l in logs:
-                out.append(f"{l[0]} {l[1]} {l[2]}")
+                time = datetime.fromisoformat(l[0])
+                med_name = l[1]
+                given_by = l[2] if l[2] else "Unknown"
+
+                out.append(f"💊 {med_name} — {time.strftime('%d %b %H:%M')} ({given_by})")
+                
             for i in incs:
-                out.append(f"{i[0]} {i[2]}")
+                for i in incs:
+                time = datetime.fromisoformat(i[0])
+                desc = i[2]
+
+                out.append(f"⚠️ {time.strftime('%H:%M')} — {desc}")
 
             st.text_area("Report", "\n".join(out), height=300)
 
