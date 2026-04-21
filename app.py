@@ -1,15 +1,15 @@
 import streamlit as st
-from datetime import datetime, timedelta
+from datetime import datetime
 from database import *
 
 st.set_page_config(page_title="DoseSafe", layout="centered")
 create_tables()
 
-# -------------------------
-# LOGIN (SIDEBAR)
-# -------------------------
 st.sidebar.title("DoseSafe")
 
+# -------------------------
+# LOGIN
+# -------------------------
 schools = get_schools()
 school = st.sidebar.selectbox("School", ["--"] + schools)
 
@@ -26,7 +26,28 @@ if staff == "--" or not pin:
     st.stop()
 
 if not verify_staff(staff, pin, school):
+    st.error("Invalid login")
     st.stop()
+
+# -------------------------
+# SUBSCRIPTION CHECK
+# -------------------------
+sub = get_subscription(school)
+
+if not sub:
+    st.error("No active subscription")
+    st.stop()
+
+status, expiry = sub
+
+if status != "active":
+    st.error("Account inactive")
+    st.stop()
+
+if expiry:
+    if datetime.now().date() > datetime.fromisoformat(expiry).date():
+        st.error("Subscription expired")
+        st.stop()
 
 is_admin = staff.lower() == "admin"
 
@@ -42,6 +63,7 @@ dob = st.sidebar.date_input("DOB")
 
 allergy_data = get_allergies()
 allergy_map = {a[1]: a[0] for a in allergy_data}
+
 selected_allergies = st.sidebar.multiselect("Allergies", list(allergy_map.keys()))
 
 if st.sidebar.button("Add Child"):
@@ -67,15 +89,10 @@ cid = child_map[selected]
 # -------------------------
 # TABS
 # -------------------------
-tab1, tab2, tab3, tab4 = st.tabs([
-    "Medication",
-    "Incidents",
-    "Reports",
-    "Library"
-])
+tab1, tab2, tab3, tab4 = st.tabs(["Medication","Incidents","Reports","Admin"])
 
 # -------------------------
-# MEDICATION TAB
+# MEDICATION
 # -------------------------
 with tab1:
     for m in get_meds(cid):
@@ -109,7 +126,7 @@ with tab1:
         st.rerun()
 
 # -------------------------
-# INCIDENTS TAB
+# INCIDENTS
 # -------------------------
 with tab2:
     itype = st.selectbox("Type", ["Injury","Illness","Allergic Reaction","Other"])
@@ -124,7 +141,7 @@ with tab2:
         st.write(f"{i[2]} - {t.strftime('%H:%M')}")
 
 # -------------------------
-# REPORTS TAB
+# REPORTS
 # -------------------------
 with tab3:
     if st.button("Generate Report"):
@@ -145,18 +162,18 @@ with tab3:
         st.text_area("Report", "\n".join(out), height=300)
 
 # -------------------------
-# LIBRARY TAB (ADMIN)
+# ADMIN (SUBSCRIPTIONS)
 # -------------------------
 with tab4:
     if is_admin:
-        name = st.text_input("Name")
-        unit = st.selectbox("Unit", ["ml","unit","n/a"])
+        st.subheader("Subscription Control")
 
-        if st.button("Add Library"):
-            add_med_to_library(name, unit)
-            st.rerun()
+        school_name = st.text_input("School Name")
+        status = st.selectbox("Status", ["active","inactive"])
+        expiry = st.date_input("Expiry")
 
-        for m in get_med_library():
-            st.write(f"{m[1]} ({m[2]})")
+        if st.button("Update Subscription"):
+            set_subscription(school_name, status, str(expiry))
+            st.success("Updated")
     else:
         st.warning("Admin only")
