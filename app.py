@@ -42,39 +42,74 @@ if mode == "Admin":
 
     show_disclaimer(u, "admin")
 
-    st.title("Admin Panel")
+st.title("Admin Panel")
 
-    # -------------------------
-    # ADD SCHOOL + STAFF
-    # -------------------------
-    st.subheader("➕ Create School & First Staff")
+# -------------------------
+# CREATE SCHOOL + STAFF
+# -------------------------
+st.subheader("➕ Create School & First Staff")
 
-    new_school = st.text_input("School Name")
-    new_staff = st.text_input("Staff Name")
-    new_pin = st.text_input("Staff PIN")
+new_school = st.text_input("School Name")
+new_staff = st.text_input("Staff Name")
+new_pin = st.text_input("Staff PIN")
 
-    if st.button("Create School"):
-        if new_school and new_staff and new_pin:
-            add_staff(new_staff, new_pin, new_school)
-            st.success("School + Staff created")
-            st.rerun()
-        else:
-            st.warning("Fill all fields")
-
-    # -------------------------
-    # VIEW EXISTING
-    # -------------------------
-    st.subheader("🏫 Schools")
-
-    schools = get_schools()
-
-    if not schools:
-        st.warning("No schools yet")
+if st.button("Create School"):
+    if new_school and new_staff and new_pin:
+        add_staff(new_staff, new_pin, new_school)
+        set_subscription(new_school, "active", "2099-12-31")
+        st.success("School + Staff created")
+        st.rerun()
     else:
-        for s in schools:
-            st.write(s)
+        st.warning("Fill all fields")
 
-    st.stop()
+# -------------------------
+# STAFF LIST + ENABLE/DISABLE
+# -------------------------
+st.subheader("👩‍🏫 Staff Management")
+
+staff_list = get_all_staff()
+
+if not staff_list:
+    st.warning("No staff yet")
+else:
+    for s in staff_list:
+        sid, name, school, active = s
+
+        col1, col2, col3 = st.columns([3,2,2])
+
+        with col1:
+            st.write(f"{name} ({school})")
+
+        with col2:
+            st.write("Active" if active else "Disabled")
+
+        with col3:
+            if active:
+                if st.button("Disable", key=f"disable_{sid}"):
+                    set_staff_active(sid, 0)
+                    st.rerun()
+            else:
+                if st.button("Enable", key=f"enable_{sid}"):
+                    set_staff_active(sid, 1)
+                    st.rerun()
+
+# -------------------------
+# SUBSCRIPTIONS
+# -------------------------
+st.subheader("💳 Subscription Control")
+
+schools = get_schools()
+
+if not schools:
+    st.warning("No schools available")
+else:
+    selected_school = st.selectbox("Select School", schools)
+
+    status = st.selectbox("Status", ["active", "inactive"])
+
+    if st.button("Update Subscription"):
+        set_subscription(selected_school, status, "2099-12-31")
+        st.success("Subscription updated")
 
 # ================= PARENT =================
 if mode == "Parent":
