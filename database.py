@@ -14,7 +14,10 @@ def create_tables():
         name TEXT,
         surname TEXT,
         dob TEXT,
-        school TEXT
+        school TEXT,
+        parent_id INTEGER,
+        parent_name TEXT,
+        parent_phone TEXT
     )""")
 
     # MEDS
@@ -91,7 +94,7 @@ def create_tables():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT,
         pin TEXT,
-        child_id INTEGER
+        phone TEXT
     )""")
 
     # DISCLAIMER
@@ -165,16 +168,29 @@ def update_staff_pin(staff_id, new_pin):
 # -------------------------
 # CHILDREN
 # -------------------------
-def add_child(n,s,d,sc):
+def add_child(n, s, d, sc, parent_name=None, parent_phone=None):
     conn = connect()
     c = conn.cursor()
-    c.execute("INSERT INTO children VALUES (NULL,?,?,?,?)",(n,s,d,sc))
+
+    c.execute("""
+        INSERT INTO children (name, surname, dob, school, parent_name, parent_phone)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (n, s, d, sc, parent_name, parent_phone))
+
     conn.commit()
-    return c.lastrowid
+    child_id = c.lastrowid
+    conn.close()
+    return child_id
 
 def get_children(sc):
     return connect().cursor().execute(
         "SELECT * FROM children WHERE school=?",(sc,)
+    ).fetchall()
+
+def get_children_by_parent(parent_id):
+    return connect().cursor().execute(
+        "SELECT * FROM children WHERE parent_id=?",
+        (parent_id,)
     ).fetchall()
 
 # -------------------------
@@ -303,16 +319,24 @@ def get_today_incidents(cid):
 # -------------------------
 # PARENTS
 # -------------------------
-def add_parent(n,p,c):
+def add_parent(n, p, phone):
     conn = connect()
-    c2 = conn.cursor()
-    c2.execute("INSERT INTO parents VALUES (NULL,?,?,?)",(n,p,c))
-    conn.commit()
-    conn.close()
+    c = conn.cursor()
 
-def verify_parent(n,p):
+    c.execute("""
+        INSERT INTO parents (name, pin, phone)
+        VALUES (?, ?, ?)
+    """, (n, p, phone))
+
+    conn.commit()
+    pid = c.lastrowid
+    conn.close()
+    return pid
+
+def verify_parent(n, p):
     return connect().cursor().execute(
-        "SELECT child_id FROM parents WHERE name=? AND pin=?",(n,p)
+        "SELECT id, phone FROM parents WHERE name=? AND pin=?",
+        (n, p)
     ).fetchone()
 
 # -------------------------
@@ -342,3 +366,23 @@ def get_all_children():
     return connect().cursor().execute(
         "SELECT * FROM children"
     ).fetchall()
+
+def get_children_by_phone(phone):
+    return connect().cursor().execute(
+        "SELECT * FROM children WHERE parent_phone=?",
+        (phone,)
+    ).fetchall()
+
+
+def assign_children_to_parent(phone, parent_id):
+    conn = connect()
+    c = conn.cursor()
+
+    c.execute("""
+        UPDATE children
+        SET parent_id=?
+        WHERE parent_phone=?
+    """, (parent_id, phone))
+
+    conn.commit()
+    conn.close()
