@@ -6,7 +6,7 @@ st.set_page_config(page_title="DoseSafe", layout="centered")
 
 create_tables()
 
-ADMIN_PIN = "9999"  # 🔒 change this later
+ADMIN_PIN = "3434"  # 🔒 change this later
 
 st.title("DoseSafe")
 
