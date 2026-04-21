@@ -93,6 +93,15 @@ def create_tables():
     )
     """)
 
+    # SUBSCRIPTIONS
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS subscriptions (
+        school TEXT PRIMARY KEY,
+        status TEXT,
+        expiry_date TEXT
+    )
+    """)
+
     # DEFAULT DATA
     defaults = ["Peanuts", "Dairy", "Eggs", "Gluten"]
     for a in defaults:
@@ -117,6 +126,25 @@ def create_tables():
     conn.close()
 
 # -------------------------
+# SUBSCRIPTIONS
+# -------------------------
+def set_subscription(school, status, expiry):
+    conn = connect()
+    c = conn.cursor()
+    c.execute("""
+        INSERT OR REPLACE INTO subscriptions (school, status, expiry_date)
+        VALUES (?, ?, ?)
+    """, (school, status, expiry))
+    conn.commit()
+    conn.close()
+
+def get_subscription(school):
+    conn = connect()
+    c = conn.cursor()
+    c.execute("SELECT status, expiry_date FROM subscriptions WHERE school=?", (school,))
+    return c.fetchone()
+
+# -------------------------
 # STAFF
 # -------------------------
 def add_staff(name, pin, school):
@@ -130,17 +158,13 @@ def get_schools():
     conn = connect()
     c = conn.cursor()
     c.execute("SELECT DISTINCT school FROM staff WHERE active=1")
-    data = [s[0] for s in c.fetchall()]
-    conn.close()
-    return data
+    return [s[0] for s in c.fetchall()]
 
 def get_staff_by_school(school):
     conn = connect()
     c = conn.cursor()
     c.execute("SELECT id, name FROM staff WHERE school=? AND active=1", (school,))
-    data = c.fetchall()
-    conn.close()
-    return data
+    return c.fetchall()
 
 def verify_staff(name, pin, school):
     conn = connect()
@@ -265,12 +289,6 @@ def get_last_dose_full(mid):
         ORDER BY time_given DESC LIMIT 1
     """, (mid,))
     return c.fetchone()
-
-def get_logs_by_med(mid):
-    conn = connect()
-    c = conn.cursor()
-    c.execute("SELECT time_given, given_by FROM logs WHERE med_id=? ORDER BY time_given DESC", (mid,))
-    return c.fetchall()
 
 # -------------------------
 # INCIDENTS
