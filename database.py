@@ -236,3 +236,42 @@ def verify_parent(n,p):
 
 def get_logs_by_med(mid):
     return connect().cursor().execute("SELECT time_given,given_by FROM logs WHERE med_id=?",(mid,)).fetchall()
+
+def get_all_staff():
+    conn = connect()
+    c = conn.cursor()
+    c.execute("SELECT id, name, school, active FROM staff")
+    data = c.fetchall()
+    conn.close()
+    return data
+
+def set_staff_active(staff_id, active):
+    conn = connect()
+    c = conn.cursor()
+    c.execute(
+        "UPDATE staff SET active=? WHERE id=?",
+        (active, staff_id)
+    )
+    conn.commit()
+    conn.close()
+
+def set_subscription(school, status, expiry):
+    conn = connect()
+    c = conn.cursor()
+    c.execute("""
+        INSERT OR REPLACE INTO subscriptions (school, status, expiry_date)
+        VALUES (?, ?, ?)
+    """, (school, status, expiry))
+    conn.commit()
+    conn.close()
+
+def get_subscription(school):
+    conn = connect()
+    c = conn.cursor()
+    c.execute("""
+        SELECT status, expiry_date FROM subscriptions
+        WHERE school=?
+    """, (school,))
+    result = c.fetchone()
+    conn.close()
+    return result
