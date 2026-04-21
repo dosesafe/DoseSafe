@@ -95,7 +95,35 @@ def create_tables():
     conn.close()
 
 
-# CHILD
+# -------------------------
+# STAFF SEED FUNCTION
+# -------------------------
+def seed_staff():
+    conn = connect()
+    c = conn.cursor()
+
+    staff_members = [
+        ("Sarah", "1234", "Little Stars"),
+        ("John", "5678", "Little Stars"),
+        ("Amy", "1111", "Bright Kids")
+    ]
+
+    for name, pin, school in staff_members:
+        try:
+            c.execute("""
+                INSERT INTO staff (name, pin, school)
+                VALUES (?, ?, ?)
+            """, (name, pin, school))
+        except:
+            pass
+
+    conn.commit()
+    conn.close()
+
+
+# -------------------------
+# CHILD FUNCTIONS
+# -------------------------
 def add_child(name, surname, dob, school):
     conn = connect()
     c = conn.cursor()
@@ -133,7 +161,9 @@ def delete_child(child_id):
     conn.close()
 
 
+# -------------------------
 # ALLERGIES
+# -------------------------
 def get_allergies():
     conn = connect()
     c = conn.cursor()
@@ -164,7 +194,9 @@ def get_child_allergies(child_id):
     return [d[0] for d in data]
 
 
-# STAFF
+# -------------------------
+# STAFF FUNCTIONS
+# -------------------------
 def get_staff_by_school(school):
     conn = connect()
     c = conn.cursor()
@@ -176,7 +208,10 @@ def get_staff_by_school(school):
 def verify_staff_pin(name, pin, school):
     conn = connect()
     c = conn.cursor()
-    c.execute("SELECT id FROM staff WHERE name=? AND pin=? AND school=?", (name, pin, school))
+    c.execute("""
+        SELECT id FROM staff
+        WHERE name=? AND pin=? AND school=?
+    """, (name, pin, school))
     result = c.fetchone()
     conn.close()
     return result
@@ -184,12 +219,17 @@ def verify_staff_pin(name, pin, school):
 def add_staff(name, pin, school):
     conn = connect()
     c = conn.cursor()
-    c.execute("INSERT INTO staff (name, pin, school) VALUES (?, ?, ?)", (name, pin, school))
+    c.execute("""
+        INSERT INTO staff (name, pin, school)
+        VALUES (?, ?, ?)
+    """, (name, pin, school))
     conn.commit()
     conn.close()
 
 
+# -------------------------
 # MEDS
+# -------------------------
 def add_med(child_id, name, dosage, interval):
     conn = connect()
     c = conn.cursor()
@@ -206,7 +246,9 @@ def get_meds_by_child(child_id):
     return data
 
 
+# -------------------------
 # LOGS
+# -------------------------
 def log_dose(med_id, time, given_by):
     conn = connect()
     c = conn.cursor()
@@ -239,7 +281,9 @@ def get_logs_by_med(med_id):
     return data
 
 
+# -------------------------
 # INCIDENTS
+# -------------------------
 def add_incident(child_id, type, description, time, reported_by):
     conn = connect()
     c = conn.cursor()
@@ -264,7 +308,9 @@ def get_incidents(child_id):
     return data
 
 
+# -------------------------
 # DAILY REPORT
+# -------------------------
 def get_today_logs(child_id):
     conn = connect()
     c = conn.cursor()
