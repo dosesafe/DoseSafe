@@ -47,7 +47,7 @@ if mode == "Admin":
 
     st.title("Admin Panel")
 
-    # CREATE SCHOOL
+    # CREATE SCHOOL + STAFF
     st.subheader("➕ Create School & Staff")
     new_school = st.text_input("School Name", key="new_school")
     new_staff = st.text_input("Staff Name", key="new_staff")
@@ -57,42 +57,63 @@ if mode == "Admin":
         if new_school and new_staff and new_pin:
             add_staff(new_staff, new_pin, new_school)
             set_subscription(new_school, "active", "2099-12-31")
-            st.success("Created successfully")
+            st.success("School + Staff created")
             st.rerun()
+        else:
+            st.warning("Fill all fields")
 
     # STAFF MANAGEMENT
-    st.subheader("👩‍🏫 Staff")
-    for s in get_all_staff():
-        sid, name, school, active = s
-        col1, col2, col3 = st.columns([3,2,2])
-        col1.write(f"{name} ({school})")
-        col2.write("Active" if active else "Disabled")
+    st.subheader("👩‍🏫 Staff Management")
 
-        if active:
-            if col3.button("Disable", key=f"d_{sid}"):
-                set_staff_active(sid, 0)
-                st.rerun()
-        else:
-            if col3.button("Enable", key=f"e_{sid}"):
-                set_staff_active(sid, 1)
-                st.rerun()
+    staff_list = get_all_staff()
+
+    if not staff_list:
+        st.warning("No staff yet")
+    else:
+        for s in staff_list:
+            sid, name, school, active = s
+
+            col1, col2, col3 = st.columns([3,2,2])
+
+            with col1:
+                st.write(f"{name} ({school})")
+
+            with col2:
+                st.write("Active" if active else "Disabled")
+
+            with col3:
+                if active:
+                    if st.button("Disable", key=f"disable_{sid}"):
+                        set_staff_active(sid, 0)
+                        st.rerun()
+                else:
+                    if st.button("Enable", key=f"enable_{sid}"):
+                        set_staff_active(sid, 1)
+                        st.rerun()
 
     # SUBSCRIPTIONS
-    st.subheader("💳 Subscriptions")
+    st.subheader("💳 Subscription Control")
+
     schools = get_schools()
 
     if schools:
-        s = st.selectbox("School", schools, key="sub_school")
-        status = st.selectbox("Status", ["active","inactive"], key="sub_status")
-        expiry = st.date_input("Expiry", key="sub_exp")
+        selected_school = st.selectbox("Select School", schools, key="sub_school")
+        status = st.selectbox("Status", ["active", "inactive"], key="sub_status")
+        expiry_date = st.date_input("Expiry Date", key="sub_expiry")
 
-        if st.button("Update", key="sub_update"):
-            set_subscription(s, status, str(expiry))
-            st.success("Updated")
+        if st.button("Update Subscription", key="update_sub"):
+            set_subscription(selected_school, status, str(expiry_date))
+            st.success(f"Updated: {selected_school} → {status}")
 
-    st.markdown("### Current")
-    for s in get_all_subscriptions():
-        st.write(s)
+    st.markdown("### 📋 Current Subscriptions")
+
+    subs = get_all_subscriptions()
+    if not subs:
+        st.info("No subscriptions yet")
+    else:
+        for s in subs:
+            school, status, expiry = s
+            st.write(f"🏫 {school} | {status} | expires: {expiry}")
 
     st.stop()
 
@@ -111,12 +132,45 @@ elif mode == "Parent":
         st.session_state.clear()
         st.rerun()
 
+    parent_plan = "free"  # 🔥 CURRENT MODEL
+
     cid = r[0]
 
     st.title("Parent Dashboard")
 
+    # VIEW MEDS
+    st.markdown("### 💊 Medications")
     for m in get_meds(cid):
-        st.write(m[2])
+        mid, _, name, dose, interval, unit = m
+        st.write(f"{name} — {dose} every {interval} hrs")
+
+    # VIEW INCIDENTS
+    st.markdown("### ⚠️ Incidents")
+    incs = get_today_incidents(cid)
+    for i in incs:
+        st.write(f"{i[1]} — {i[2]}")
+
+    # REPORT
+    st.markdown("### 📄 Report")
+    if st.button("Generate Report", key="parent_report"):
+        logs = get_today_logs(cid)
+        incs = get_today_incidents(cid)
+
+        out = []
+        for l in logs:
+            out.append(f"{l[0]} {l[1]} {l[2]}")
+
+        for i in incs:
+            out.append(f"{i[0]} {i[2]}")
+
+        st.text_area("Report", "\n".join(out), height=300)
+
+    # 🔒 LOCKED FEATURES
+    st.markdown("### ➕ Add Medication")
+
+    if parent_plan == "free":
+        st.info("Upgrade to add medications and track doses at home")
+        st.button("Upgrade (Coming Soon)", key="upgrade_btn")
 
     st.stop()
 
@@ -192,7 +246,7 @@ elif mode == "School Staff":
             st.rerun()
 
     # ADD MED
-    st.markdown("### Add Medication")
+    st.markdown("### ➕ Add Medication")
 
     med_mode = st.radio("Type",["Library","Custom"], key="med_mode")
 
@@ -221,7 +275,7 @@ elif mode == "School Staff":
             st.rerun()
 
     # INCIDENTS
-    st.markdown("### Incidents")
+    st.markdown("### ⚠️ Incidents")
 
     t = st.selectbox("Type",["Injury","Illness","Allergic Reaction"], key="inc_type")
     d = st.text_input("Description", key="inc_desc")
@@ -231,6 +285,8 @@ elif mode == "School Staff":
         st.rerun()
 
     # REPORT
+    st.markdown("### 📄 Report")
+
     if st.button("Generate Report", key="report_btn"):
         logs = get_today_logs(cid)
         incs = get_today_incidents(cid)
