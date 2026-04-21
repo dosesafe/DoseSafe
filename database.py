@@ -108,9 +108,15 @@ def accept_disclaimer(user, role):
 # -------------------------
 # BASIC FUNCTIONS
 # -------------------------
-def add_staff(n,p,s):
-    connect().cursor().execute("INSERT INTO staff (name,pin,school) VALUES (?,?,?)",(n,p,s))
-    connect().commit()
+def add_staff(n, p, s):
+    conn = connect()
+    c = conn.cursor()
+    c.execute(
+        "INSERT INTO staff (name, pin, school) VALUES (?, ?, ?)",
+        (n, p, s)
+    )
+    conn.commit()
+    conn.close()
 
 def get_schools():
     c = connect().cursor()
@@ -145,23 +151,41 @@ def add_child_allergies(cid,aids):
         c.execute("INSERT INTO child_allergies VALUES (?,?)",(cid,a))
     conn.commit()
 
-def add_med(cid,n,d,i,u):
-    connect().cursor().execute("INSERT INTO meds VALUES (NULL,?,?,?,?,?)",(cid,n,d,i,u))
-    connect().commit()
+def add_med(cid, n, d, i, u):
+    conn = connect()
+    c = conn.cursor()
+    c.execute(
+        "INSERT INTO meds VALUES (NULL,?,?,?,?,?)",
+        (cid, n, d, i, u)
+    )
+    conn.commit()
+    conn.close()
 
 def get_meds(cid):
     return connect().cursor().execute("SELECT * FROM meds WHERE child_id=?",(cid,)).fetchall()
 
-def log_dose(mid,u):
-    connect().cursor().execute("INSERT INTO logs VALUES (NULL,?,?,?)",(mid,datetime.now().isoformat(),u))
-    connect().commit()
+def log_dose(mid, u):
+    conn = connect()
+    c = conn.cursor()
+    c.execute(
+        "INSERT INTO logs VALUES (NULL,?,?,?)",
+        (mid, datetime.now().isoformat(), u)
+    )
+    conn.commit()
+    conn.close()
 
 def get_last_dose_full(mid):
     return connect().cursor().execute("SELECT time_given,given_by FROM logs WHERE med_id=? ORDER BY time_given DESC LIMIT 1",(mid,)).fetchone()
 
-def add_incident(cid,t,d,u):
-    connect().cursor().execute("INSERT INTO incidents VALUES (NULL,?,?,?,?,?)",(cid,t,d,datetime.now().isoformat(),u))
-    connect().commit()
+def add_incident(cid, t, d, u):
+    conn = connect()
+    c = conn.cursor()
+    c.execute(
+        "INSERT INTO incidents VALUES (NULL,?,?,?,?,?)",
+        (cid, t, d, datetime.now().isoformat(), u)
+    )
+    conn.commit()
+    conn.close()
 
 def get_incidents(cid):
     return connect().cursor().execute("SELECT * FROM incidents WHERE child_id=? ORDER BY time DESC",(cid,)).fetchall()
@@ -184,15 +208,28 @@ def get_today_incidents(cid):
 def get_med_library():
     return connect().cursor().execute("SELECT * FROM med_library").fetchall()
 
-def add_med_to_library(n,u):
+def add_med_to_library(n, u):
+    conn = connect()
+    c = conn.cursor()
     try:
-        connect().cursor().execute("INSERT INTO med_library (name,unit) VALUES (?,?)",(n,u))
-        connect().commit()
-    except: pass
+        c.execute(
+            "INSERT INTO med_library (name, unit) VALUES (?, ?)",
+            (n, u)
+        )
+        conn.commit()
+    except:
+        pass
+    conn.close()
 
-def add_parent(n,p,c):
-    connect().cursor().execute("INSERT INTO parents VALUES (NULL,?,?,?)",(n,p,c))
-    connect().commit()
+def add_parent(n, p, c):
+    conn = connect()
+    c2 = conn.cursor()
+    c2.execute(
+        "INSERT INTO parents VALUES (NULL,?,?,?)",
+        (n, p, c)
+    )
+    conn.commit()
+    conn.close()
 
 def verify_parent(n,p):
     return connect().cursor().execute("SELECT child_id FROM parents WHERE name=? AND pin=?",(n,p)).fetchone()
