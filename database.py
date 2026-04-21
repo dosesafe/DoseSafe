@@ -23,18 +23,19 @@ def create_tables():
     )
     """)
 
-    # MEDICATIONS
+    # MEDS
     c.execute("""
     CREATE TABLE IF NOT EXISTS meds (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         child_id INTEGER,
         name TEXT,
         dosage TEXT,
-        interval INTEGER
+        interval INTEGER,
+        unit TEXT
     )
     """)
 
-    # DOSE LOGS
+    # LOGS
     c.execute("""
     CREATE TABLE IF NOT EXISTS logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -67,7 +68,7 @@ def create_tables():
     )
     """)
 
-    # ALLERGIES MASTER
+    # ALLERGIES
     c.execute("""
     CREATE TABLE IF NOT EXISTS allergies (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -83,11 +84,32 @@ def create_tables():
     )
     """)
 
-    # DEFAULT ALLERGIES
-    defaults = ["Peanuts", "Dairy", "Eggs", "Gluten", "Soy", "Penicillin", "Ibuprofen"]
+    # MED LIBRARY
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS med_library (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,
+        unit TEXT
+    )
+    """)
+
+    # DEFAULT DATA
+    defaults = ["Peanuts", "Dairy", "Eggs", "Gluten"]
     for a in defaults:
         try:
             c.execute("INSERT INTO allergies (name) VALUES (?)", (a,))
+        except:
+            pass
+
+    meds = [
+        ("Panado", "ml"),
+        ("Nurofen", "ml"),
+        ("Plaster", "unit"),
+        ("Burnshield", "n/a")
+    ]
+    for m in meds:
+        try:
+            c.execute("INSERT INTO med_library (name, unit) VALUES (?, ?)", m)
         except:
             pass
 
@@ -95,27 +117,12 @@ def create_tables():
     conn.close()
 
 # -------------------------
-# STAFF FUNCTIONS
+# STAFF
 # -------------------------
 def add_staff(name, pin, school):
     conn = connect()
     c = conn.cursor()
-    c.execute("INSERT INTO staff (name, pin, school) VALUES (?, ?, ?)", (name, pin, school))
-    conn.commit()
-    conn.close()
-
-def get_all_staff():
-    conn = connect()
-    c = conn.cursor()
-    c.execute("SELECT id, name, school, active FROM staff")
-    data = c.fetchall()
-    conn.close()
-    return data
-
-def set_staff_active(staff_id, active):
-    conn = connect()
-    c = conn.cursor()
-    c.execute("UPDATE staff SET active=? WHERE id=?", (active, staff_id))
+    c.execute("INSERT INTO staff (name, pin, school) VALUES (?,?,?)", (name, pin, school))
     conn.commit()
     conn.close()
 
@@ -138,25 +145,32 @@ def get_staff_by_school(school):
 def verify_staff(name, pin, school):
     conn = connect()
     c = conn.cursor()
-    c.execute("""
-        SELECT id FROM staff
-        WHERE name=? AND pin=? AND school=? AND active=1
-    """, (name, pin, school))
-    result = c.fetchone()
+    c.execute("SELECT id FROM staff WHERE name=? AND pin=? AND school=? AND active=1",
+              (name, pin, school))
+    return c.fetchone()
+
+def get_all_staff():
+    conn = connect()
+    c = conn.cursor()
+    c.execute("SELECT id, name, school, active FROM staff")
+    return c.fetchall()
+
+def set_staff_active(id, active):
+    conn = connect()
+    c = conn.cursor()
+    c.execute("UPDATE staff SET active=? WHERE id=?", (active, id))
+    conn.commit()
     conn.close()
-    return result
 
 # -------------------------
-# CHILD FUNCTIONS
+# CHILD
 # -------------------------
 def add_child(name, surname, dob, school):
     conn = connect()
     c = conn.cursor()
     try:
-        c.execute("""
-            INSERT INTO children (name, surname, dob, school)
-            VALUES (?, ?, ?, ?)
-        """, (name, surname, dob, school))
+        c.execute("INSERT INTO children (name, surname, dob, school) VALUES (?,?,?,?)",
+                  (name, surname, dob, school))
         conn.commit()
         return c.lastrowid
     except:
@@ -168,9 +182,7 @@ def get_children(school):
     conn = connect()
     c = conn.cursor()
     c.execute("SELECT * FROM children WHERE school=?", (school,))
-    data = c.fetchall()
-    conn.close()
-    return data
+    return c.fetchall()
 
 # -------------------------
 # ALLERGIES
@@ -179,81 +191,71 @@ def get_allergies():
     conn = connect()
     c = conn.cursor()
     c.execute("SELECT id, name FROM allergies")
-    data = c.fetchall()
-    conn.close()
-    return data
+    return c.fetchall()
 
-def add_child_allergies(child_id, allergy_ids):
+def add_child_allergies(cid, aids):
     conn = connect()
     c = conn.cursor()
-    for aid in allergy_ids:
-        c.execute("""
-            INSERT INTO child_allergies (child_id, allergy_id)
-            VALUES (?, ?)
-        """, (child_id, aid))
+    for a in aids:
+        c.execute("INSERT INTO child_allergies VALUES (?,?)", (cid, a))
     conn.commit()
     conn.close()
 
-def get_child_allergies(child_id):
+def get_child_allergies(cid):
     conn = connect()
     c = conn.cursor()
     c.execute("""
-        SELECT a.name
-        FROM allergies a
+        SELECT a.name FROM allergies a
         JOIN child_allergies ca ON a.id = ca.allergy_id
         WHERE ca.child_id=?
-    """, (child_id,))
-    data = [d[0] for d in c.fetchall()]
-    conn.close()
-    return data
+    """, (cid,))
+    return [x[0] for x in c.fetchall()]
 
 # -------------------------
-# MEDICATION
+# MED LIBRARY
 # -------------------------
-def add_med(child_id, name, dosage, interval):
+def get_med_library():
     conn = connect()
     c = conn.cursor()
-    c.execute("""
-        INSERT INTO meds (child_id, name, dosage, interval)
-        VALUES (?, ?, ?, ?)
-    """, (child_id, name, dosage, interval))
+    c.execute("SELECT * FROM med_library")
+    return c.fetchall()
+
+def add_med_to_library(name, unit):
+    conn = connect()
+    c = conn.cursor()
+    c.execute("INSERT INTO med_library (name, unit) VALUES (?,?)", (name, unit))
     conn.commit()
     conn.close()
 
-def get_meds(child_id):
+# -------------------------
+# MEDS
+# -------------------------
+def add_med(cid, name, dose, interval, unit):
     conn = connect()
     c = conn.cursor()
-    c.execute("SELECT * FROM meds WHERE child_id=?", (child_id,))
-    data = c.fetchall()
-    conn.close()
-    return data
-
-# -------------------------
-# DOSE LOGS
-# -------------------------
-def log_dose(med_id, given_by):
-    conn = connect()
-    c = conn.cursor()
-    c.execute("""
-        INSERT INTO logs (med_id, time_given, given_by)
-        VALUES (?, ?, ?)
-    """, (med_id, datetime.now().isoformat(), given_by))
+    c.execute("INSERT INTO meds VALUES (NULL,?,?,?,?,?)",
+              (cid, name, dose, interval, unit))
     conn.commit()
     conn.close()
 
-def get_last_dose(med_id):
+def get_meds(cid):
     conn = connect()
     c = conn.cursor()
-    c.execute("""
-        SELECT time_given FROM logs
-        WHERE med_id=?
-        ORDER BY time_given DESC LIMIT 1
-    """, (med_id,))
-    r = c.fetchone()
-    conn.close()
-    return r[0] if r else None
+    c.execute("SELECT * FROM meds WHERE child_id=?", (cid,))
+    return c.fetchall()
 
-def get_last_dose_full(med_id):
+# -------------------------
+# LOGS
+# -------------------------
+def log_dose(mid, user):
+    conn = connect()
+    c = conn.cursor()
+    c.execute("INSERT INTO logs VALUES (NULL,?,?,?)",
+              (mid, datetime.now().isoformat(), user))
+    conn.commit()
+    conn.close()
+
+def get_last_dose_full(mid):
     conn = connect()
     c = conn.cursor()
     c.execute("""
@@ -261,43 +263,38 @@ def get_last_dose_full(med_id):
         FROM logs
         WHERE med_id=?
         ORDER BY time_given DESC LIMIT 1
-    """, (med_id,))
-    r = c.fetchone()
-    conn.close()
-    return r
+    """, (mid,))
+    return c.fetchone()
+
+def get_logs_by_med(mid):
+    conn = connect()
+    c = conn.cursor()
+    c.execute("SELECT time_given, given_by FROM logs WHERE med_id=? ORDER BY time_given DESC", (mid,))
+    return c.fetchall()
 
 # -------------------------
 # INCIDENTS
 # -------------------------
-def add_incident(child_id, type, description, reported_by):
+def add_incident(cid, t, desc, user):
     conn = connect()
     c = conn.cursor()
-    c.execute("""
-        INSERT INTO incidents (child_id, type, description, time, reported_by)
-        VALUES (?, ?, ?, ?, ?)
-    """, (child_id, type, description, datetime.now().isoformat(), reported_by))
+    c.execute("INSERT INTO incidents VALUES (NULL,?,?,?,?,?)",
+              (cid, t, desc, datetime.now().isoformat(), user))
     conn.commit()
     conn.close()
 
-def get_incidents(child_id):
+def get_incidents(cid):
     conn = connect()
     c = conn.cursor()
-    c.execute("""
-        SELECT * FROM incidents
-        WHERE child_id=?
-        ORDER BY time DESC
-    """, (child_id,))
-    data = c.fetchall()
-    conn.close()
-    return data
+    c.execute("SELECT * FROM incidents WHERE child_id=? ORDER BY time DESC", (cid,))
+    return c.fetchall()
 
 # -------------------------
-# DAILY REPORT
+# REPORTS
 # -------------------------
-def get_today_logs(child_id):
+def get_today_logs(cid):
     conn = connect()
     c = conn.cursor()
-
     today = datetime.now().date().isoformat()
 
     c.execute("""
@@ -305,24 +302,19 @@ def get_today_logs(child_id):
         FROM logs l
         JOIN meds m ON l.med_id = m.id
         WHERE m.child_id=? AND DATE(l.time_given)=?
-    """, (child_id, today))
+    """, (cid, today))
 
-    data = c.fetchall()
-    conn.close()
-    return data
+    return c.fetchall()
 
-def get_today_incidents(child_id):
+def get_today_incidents(cid):
     conn = connect()
     c = conn.cursor()
-
     today = datetime.now().date().isoformat()
 
     c.execute("""
         SELECT type, description, time, reported_by
         FROM incidents
         WHERE child_id=? AND DATE(time)=?
-    """, (child_id, today))
+    """, (cid, today))
 
-    data = c.fetchall()
-    conn.close()
-    return data
+    return c.fetchall()
