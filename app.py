@@ -3,82 +3,38 @@ from datetime import datetime, timedelta
 from database import *
 
 st.set_page_config(page_title="DoseSafe", layout="centered")
-
 create_tables()
-
-st.sidebar.title("DoseSafe")
 
 # -------------------------
 # LOGIN (SIDEBAR)
 # -------------------------
+st.sidebar.title("DoseSafe")
+
 schools = get_schools()
-selected_school = st.sidebar.selectbox("🏫 School", ["--"] + schools)
+school = st.sidebar.selectbox("School", ["--"] + schools)
 
-if selected_school == "--":
+if school == "--":
     st.stop()
 
-staff_list = get_staff_by_school(selected_school)
-staff_names = [s[1] for s in staff_list]
+staff_list = get_staff_by_school(school)
+names = [s[1] for s in staff_list]
 
-staff_name = st.sidebar.selectbox("👩‍🏫 Staff", ["--"] + staff_names)
-staff_pin = st.sidebar.text_input("PIN", type="password")
+staff = st.sidebar.selectbox("Staff", ["--"] + names)
+pin = st.sidebar.text_input("PIN", type="password")
 
-if staff_name == "--" or not staff_pin:
+if staff == "--" or not pin:
     st.stop()
 
-if not verify_staff(staff_name, staff_pin, selected_school):
-    st.sidebar.error("Invalid PIN")
+if not verify_staff(staff, pin, school):
     st.stop()
 
-st.sidebar.success(f"{staff_name}")
+is_admin = staff.lower() == "admin"
 
 # -------------------------
-# ADMIN AUTO-ACCESS
-# -------------------------
-is_admin = staff_name.lower() == "admin"
-
-# -------------------------
-# ADMIN PANEL (AUTO OPEN)
-# -------------------------
-if is_admin:
-    st.sidebar.markdown("---")
-    st.sidebar.header("⚙️ Admin Panel")
-
-    name = st.sidebar.text_input("Staff Name")
-    pin = st.sidebar.text_input("Staff PIN")
-    school = st.sidebar.text_input("School")
-
-    if st.sidebar.button("Add Staff"):
-        if name and pin and school:
-            add_staff(name, pin, school)
-            st.sidebar.success("Added")
-
-    st.sidebar.subheader("Staff Management")
-
-    for s in get_all_staff():
-        sid, n, sch, active = s
-
-        col1, col2 = st.sidebar.columns([3,1])
-
-        with col1:
-            status = "🟢" if active else "🔴"
-            st.write(f"{status} {n} ({sch})")
-
-        with col2:
-            if active:
-                if st.button("❌", key=f"d{sid}"):
-                    set_staff_active(sid, 0)
-                    st.rerun()
-            else:
-                if st.button("✅", key=f"e{sid}"):
-                    set_staff_active(sid, 1)
-                    st.rerun()
-
-# -------------------------
-# ADD CHILD (SIDEBAR)
+# ADD CHILD
 # -------------------------
 st.sidebar.markdown("---")
-st.sidebar.subheader("➕ Add Child")
+st.sidebar.subheader("Add Child")
 
 name = st.sidebar.text_input("First Name")
 surname = st.sidebar.text_input("Surname")
@@ -86,30 +42,18 @@ dob = st.sidebar.date_input("DOB")
 
 allergy_data = get_allergies()
 allergy_map = {a[1]: a[0] for a in allergy_data}
-
 selected_allergies = st.sidebar.multiselect("Allergies", list(allergy_map.keys()))
 
 if st.sidebar.button("Add Child"):
-    cid = add_child(name, surname, str(dob), selected_school)
-
+    cid = add_child(name, surname, str(dob), school)
     if cid:
         add_child_allergies(cid, [allergy_map[a] for a in selected_allergies])
-        st.sidebar.success("Child added")
-    else:
-        st.sidebar.warning("Child already exists")
-
-    st.rerun()
+        st.rerun()
 
 # -------------------------
-# MAIN SCREEN
+# SELECT CHILD
 # -------------------------
-st.title("DoseSafe")
-
-children = get_children(selected_school)
-
-if not children:
-    st.info("Add a child to begin")
-    st.stop()
+children = get_children(school)
 
 child_map = {f"{c[1]} {c[2]}": c[0] for c in children}
 
@@ -119,124 +63,100 @@ if selected == "--":
     st.stop()
 
 cid = child_map[selected]
-child_data = next(c for c in children if c[0] == cid)
 
 # -------------------------
-# CHILD HEADER
+# TABS
 # -------------------------
-st.subheader(f"{child_data[1]} {child_data[2]}")
-st.caption(f"DOB: {child_data[3]}")
-
-allergies = get_child_allergies(cid)
-if allergies:
-    st.error(f"🚨 Allergies: {', '.join(allergies)}")
-
-st.divider()
+tab1, tab2, tab3, tab4 = st.tabs([
+    "Medication",
+    "Incidents",
+    "Reports",
+    "Library"
+])
 
 # -------------------------
-# MEDICATION
+# MEDICATION TAB
 # -------------------------
-st.header("💊 Medication")
+with tab1:
+    for m in get_meds(cid):
+        mid, _, name, dose, interval, unit = m
 
-meds = get_meds(cid)
+        st.subheader(name)
+        st.caption(f"{dose} {unit} • every {interval} hrs")
 
-for m in meds:
-    mid, _, name, dose, interval = m
+        last = get_last_dose_full(mid)
 
-    last_full = get_last_dose_full(mid)
+        if last:
+            t = datetime.fromisoformat(last[0])
+            st.write(f"Last: {t.strftime('%H:%M')} ({last[1]})")
 
-    st.subheader(name)
-    st.caption(f"{dose} • every {interval} hrs")
+        if st.button(f"Give {name}", key=f"g{mid}"):
+            log_dose(mid, staff)
+            st.rerun()
 
-    if last_full:
-        last_time = datetime.fromisoformat(last_full[0])
-        given_by = last_full[1]
+    st.markdown("### Add Medication")
 
-        next_time = last_time + timedelta(hours=interval)
-        now = datetime.now()
+    lib = get_med_library()
+    lib_map = {f"{m[1]} ({m[2]})": m for m in lib}
 
-        st.write(f"Last: {last_time.strftime('%H:%M')} ({given_by})")
-        st.write(f"Next: {next_time.strftime('%H:%M')}")
+    sel = st.selectbox("Medication", list(lib_map.keys()))
+    dose = st.text_input("Dosage")
+    interval = st.number_input("Interval", min_value=1)
 
-        if now < next_time:
-            diff = next_time - now
-            sec = int(diff.total_seconds())
-
-            h = sec // 3600
-            m = (sec % 3600) // 60
-
-            if sec > 1800:
-                st.error(f"❌ Too soon ({h}h {m}m)")
-            else:
-                st.warning(f"⚠️ Due soon ({m} min)")
-        else:
-            st.success("✅ Safe to give")
-    else:
-        st.info("No doses recorded")
-
-    if st.button(f"💊 Give {name}", key=f"g{mid}"):
-        log_dose(mid, staff_name)
-        st.rerun()
-
-    st.divider()
-
-# -------------------------
-# ADD MED
-# -------------------------
-with st.expander("➕ Add Medicine"):
-    med_name = st.text_input("Medicine")
-    dosage = st.text_input("Dosage")
-    interval = st.number_input("Interval (hrs)", min_value=1)
-
-    if st.button("Add Medicine"):
-        add_med(cid, med_name, dosage, interval)
+    if st.button("Add"):
+        m = lib_map[sel]
+        add_med(cid, m[1], dose, interval, m[2])
         st.rerun()
 
 # -------------------------
-# INCIDENTS
+# INCIDENTS TAB
 # -------------------------
-st.header("⚠️ Incidents")
+with tab2:
+    itype = st.selectbox("Type", ["Injury","Illness","Allergic Reaction","Other"])
+    desc = st.text_input("Description")
 
-itype = st.selectbox("Type", ["Injury", "Illness", "Allergic Reaction", "Other"])
-desc = st.text_input("Description")
+    if st.button("Log"):
+        add_incident(cid, itype, desc, staff)
+        st.rerun()
 
-if st.button("Log Incident"):
-    add_incident(cid, itype, desc, staff_name)
-    st.rerun()
-
-for i in get_incidents(cid):
-    t = datetime.fromisoformat(i[4])
-    st.write(f"{i[2]} - {t.strftime('%H:%M')}")
-    st.caption(f"{i[3]}")
+    for i in get_incidents(cid):
+        t = datetime.fromisoformat(i[4])
+        st.write(f"{i[2]} - {t.strftime('%H:%M')}")
 
 # -------------------------
-# DAILY REPORT
+# REPORTS TAB
 # -------------------------
-st.header("📤 Daily Report")
+with tab3:
+    if st.button("Generate Report"):
+        logs = get_today_logs(cid)
+        incs = get_today_incidents(cid)
 
-if st.button("Generate Report"):
-
-    logs = get_today_logs(cid)
-    incs = get_today_incidents(cid)
-
-    report = []
-
-    report.append("MEDICATION:")
-    if logs:
+        out = []
+        out.append("MEDICATION:")
         for l in logs:
             t = datetime.fromisoformat(l[1])
-            report.append(f"- {l[0]} at {t.strftime('%H:%M')} ({l[2]})")
-    else:
-        report.append("- None")
+            out.append(f"{l[0]} {t.strftime('%H:%M')} {l[2]}")
 
-    report.append("")
-    report.append("INCIDENTS:")
-    if incs:
+        out.append("\nINCIDENTS:")
         for i in incs:
             t = datetime.fromisoformat(i[2])
-            report.append(f"- {i[0]} at {t.strftime('%H:%M')}")
-            report.append(f"  {i[1]} ({i[3]})")
-    else:
-        report.append("- None")
+            out.append(f"{i[0]} {t.strftime('%H:%M')}")
 
-    st.text_area("Report Output", "\n".join(report), height=300)
+        st.text_area("Report", "\n".join(out), height=300)
+
+# -------------------------
+# LIBRARY TAB (ADMIN)
+# -------------------------
+with tab4:
+    if is_admin:
+        name = st.text_input("Name")
+        unit = st.selectbox("Unit", ["ml","unit","n/a"])
+
+        if st.button("Add Library"):
+            add_med_to_library(name, unit)
+            st.rerun()
+
+        for m in get_med_library():
+            st.write(f"{m[1]} ({m[2]})")
+    else:
+        st.warning("Admin only")
