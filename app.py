@@ -76,7 +76,8 @@ if mode == "Admin":
 
     show_disclaimer(st.session_state["user"], "admin")
 
-    st.sidebar.button("🚪 Logout", on_click=logout)
+   if st.sidebar.button("🚪 Logout"):
+    logout()
 
     st.title("Admin Panel")
 
@@ -156,7 +157,8 @@ elif mode == "School Staff":
 
     show_disclaimer(st.session_state["user"], "staff")
 
-    st.sidebar.button("🚪 Logout", on_click=logout)
+    if st.sidebar.button("🚪 Logout"):
+    logout()
 
     school = st.session_state["school"]
     staff = st.session_state["user"]
@@ -269,7 +271,8 @@ elif mode == "Parent":
 
     show_disclaimer(name, "parent")
 
-    st.sidebar.button("🚪 Logout", on_click=logout)
+    if st.sidebar.button("🚪 Logout"):
+    logout()
 
     cid = r[0]
 
