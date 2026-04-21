@@ -8,15 +8,102 @@ create_tables()
 st.sidebar.title("DoseSafe")
 
 # -------------------------
-# AUTO CREATE ADMIN (SAFE)
+# LOGIN MODE
 # -------------------------
-if not verify_staff("Admin", "1234", "System"):
-    add_staff("Admin", "1234", "System")
-    set_subscription("System", "active", "2099-12-31")
+login_mode = st.sidebar.selectbox("Login Type", ["School Staff", "Admin"])
 
-# -------------------------
-# LOGIN
-# -------------------------
+# =========================
+# ADMIN LOGIN
+# =========================
+if login_mode == "Admin":
+    username = st.sidebar.text_input("Admin Username")
+    password = st.sidebar.text_input("Admin PIN", type="password")
+
+    if username != "Admin" or password != "1234":
+        st.stop()
+
+    st.sidebar.success("Admin logged in")
+
+    st.title("⚙️ Admin Panel")
+
+    # -------------------------
+    # ALL SCHOOLS
+    # -------------------------
+    st.subheader("🏫 Schools")
+    schools = get_schools()
+
+    if not schools:
+        st.info("No schools yet")
+    else:
+        for s in schools:
+            st.write(f"• {s}")
+
+    st.divider()
+
+    # -------------------------
+    # STAFF MANAGEMENT
+    # -------------------------
+    st.subheader("👩‍🏫 Staff Management")
+
+    for s in get_all_staff():
+        sid, name, school, active = s
+
+        col1, col2 = st.columns([3,1])
+
+        with col1:
+            status = "🟢" if active else "🔴"
+            st.write(f"{status} {name} ({school})")
+
+        with col2:
+            if active:
+                if st.button("Disable", key=f"d{sid}"):
+                    set_staff_active(sid, 0)
+                    st.rerun()
+            else:
+                if st.button("Enable", key=f"e{sid}"):
+                    set_staff_active(sid, 1)
+                    st.rerun()
+
+    st.divider()
+
+    # -------------------------
+    # ADD STAFF
+    # -------------------------
+    st.subheader("➕ Add Staff")
+
+    new_name = st.text_input("Name")
+    new_pin = st.text_input("PIN")
+    new_school = st.text_input("School")
+
+    if st.button("Add Staff"):
+        if new_name and new_pin and new_school:
+            add_staff(new_name, new_pin, new_school)
+            set_subscription(new_school, "active", "2099-12-31")
+            st.success("Staff added + subscription created")
+            st.rerun()
+        else:
+            st.warning("Fill all fields")
+
+    st.divider()
+
+    # -------------------------
+    # SUBSCRIPTIONS
+    # -------------------------
+    st.subheader("💳 Subscription Control")
+
+    school_name = st.text_input("School Name")
+    status = st.selectbox("Status", ["active", "inactive"])
+    expiry = st.date_input("Expiry Date")
+
+    if st.button("Update Subscription"):
+        set_subscription(school_name, status, str(expiry))
+        st.success("Updated")
+
+    st.stop()
+
+# =========================
+# SCHOOL LOGIN
+# =========================
 schools = get_schools()
 school = st.sidebar.selectbox("School", ["--"] + schools)
 
@@ -37,7 +124,7 @@ if not verify_staff(staff, pin, school):
     st.stop()
 
 # -------------------------
-# SUBSCRIPTION AUTO FIX
+# SUBSCRIPTION CHECK
 # -------------------------
 sub = get_subscription(school)
 
@@ -57,15 +144,10 @@ if expiry:
         st.stop()
 
 # -------------------------
-# ADMIN CHECK
-# -------------------------
-is_admin = staff.lower() == "admin" and school.lower() == "system"
-
-# -------------------------
-# ADD CHILD
+# ADD CHILD (SIDEBAR)
 # -------------------------
 st.sidebar.markdown("---")
-st.sidebar.subheader("Add Child")
+st.sidebar.subheader("➕ Add Child")
 
 name = st.sidebar.text_input("First Name")
 surname = st.sidebar.text_input("Surname")
@@ -73,6 +155,7 @@ dob = st.sidebar.date_input("DOB")
 
 allergy_data = get_allergies()
 allergy_map = {a[1]: a[0] for a in allergy_data}
+
 selected_allergies = st.sidebar.multiselect("Allergies", list(allergy_map.keys()))
 
 if st.sidebar.button("Add Child"):
@@ -82,9 +165,15 @@ if st.sidebar.button("Add Child"):
         st.rerun()
 
 # -------------------------
-# SELECT CHILD
+# MAIN APP
 # -------------------------
+st.title("DoseSafe")
+
 children = get_children(school)
+
+if not children:
+    st.info("Add a child to begin")
+    st.stop()
 
 child_map = {f"{c[1]} {c[2]}": c[0] for c in children}
 
@@ -98,10 +187,7 @@ cid = child_map[selected]
 # -------------------------
 # TABS
 # -------------------------
-if is_admin:
-    tab1, tab2, tab3, tab4 = st.tabs(["Medication","Incidents","Reports","Admin"])
-else:
-    tab1, tab2, tab3 = st.tabs(["Medication","Incidents","Reports"])
+tab1, tab2, tab3 = st.tabs(["Medication", "Incidents", "Reports"])
 
 # -------------------------
 # MEDICATION
@@ -123,7 +209,7 @@ with tab1:
             log_dose(mid, staff)
             st.rerun()
 
-    st.markdown("### Add Medication")
+    st.markdown("### ➕ Add Medication")
 
     lib = get_med_library()
     lib_map = {f"{m[1]} ({m[2]})": m for m in lib}
@@ -144,13 +230,14 @@ with tab2:
     itype = st.selectbox("Type", ["Injury","Illness","Allergic Reaction","Other"])
     desc = st.text_input("Description")
 
-    if st.button("Log"):
+    if st.button("Log Incident"):
         add_incident(cid, itype, desc, staff)
         st.rerun()
 
     for i in get_incidents(cid):
         t = datetime.fromisoformat(i[4])
         st.write(f"{i[2]} - {t.strftime('%H:%M')}")
+        st.caption(i[3])
 
 # -------------------------
 # REPORTS
@@ -172,18 +259,3 @@ with tab3:
             out.append(f"{i[0]} {t.strftime('%H:%M')}")
 
         st.text_area("Report", "\n".join(out), height=300)
-
-# -------------------------
-# ADMIN
-# -------------------------
-if is_admin:
-    with tab4:
-        st.subheader("Subscription Control")
-
-        school_name = st.text_input("School Name")
-        status = st.selectbox("Status", ["active","inactive"])
-        expiry = st.date_input("Expiry")
-
-        if st.button("Update Subscription"):
-            set_subscription(school_name, status, str(expiry))
-            st.success("Updated")
