@@ -304,3 +304,23 @@ def get_today_incidents(cid):
     today = datetime.now().date().isoformat()
     c.execute("SELECT type,description,time,reported_by FROM incidents WHERE child_id=? AND DATE(time)=?",(cid,today))
     return c.fetchall()
+
+# -------------------------
+# PARENTS
+# -------------------------
+def add_parent(name, pin, child_id):
+    conn = connect()
+    c = conn.cursor()
+    c.execute("INSERT INTO parents (name, pin, child_id) VALUES (?,?,?)",
+              (name, pin, child_id))
+    conn.commit()
+    conn.close()
+
+def verify_parent(name, pin):
+    conn = connect()
+    c = conn.cursor()
+    c.execute("SELECT child_id FROM parents WHERE name=? AND pin=?",
+              (name, pin))
+    result = c.fetchone()
+    conn.close()
+    return result
