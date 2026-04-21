@@ -155,7 +155,7 @@ elif mode == "Parent":
 
                 out.append(f"💊 {med_name} — {time.strftime('%d %b %H:%M')} ({given_by})")
                 
-                for i in incs:
+            for i in incs:
                 time = datetime.fromisoformat(i[0])
                 desc = i[2]
 
