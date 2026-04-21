@@ -39,19 +39,20 @@ if mode == "Admin":
         st.session_state["admin_logged_in"] = False
 
     if not st.session_state["admin_logged_in"]:
-        u = st.sidebar.text_input("Admin Username", key="admin_user")
-        admin_pin = st.sidebar.text_input("PIN", type="password", key="admin_pin")
+        u = st.sidebar.text_input("Admin Username")
+        p = st.sidebar.text_input("PIN", type="password")
 
         if st.sidebar.button("Login"):
-            if u == "Admin" and admin_pin == "1234":
+            if u == "Admin" and p == "1234":
                 st.session_state["admin_logged_in"] = True
+                st.session_state["admin_user"] = u
                 st.rerun()
             else:
                 st.sidebar.error("Invalid login")
 
         st.stop()
 
-    show_disclaimer(u, "admin")
+    show_disclaimer(st.session_state["admin_user"], "admin")
 
     if st.sidebar.button("🚪 Logout"):
         st.session_state.clear()
@@ -59,7 +60,6 @@ if mode == "Admin":
 
     st.title("Admin Panel")
 
-    # CREATE SCHOOL
     st.subheader("➕ Create School & Staff")
     new_school = st.text_input("School Name")
     new_staff = st.text_input("Staff Name")
@@ -71,7 +71,6 @@ if mode == "Admin":
         st.success("Created")
         st.rerun()
 
-    # STAFF MANAGEMENT
     st.subheader("👩‍🏫 Staff Management")
     for s in get_all_staff():
         sid, name, school, active = s
@@ -94,7 +93,6 @@ if mode == "Admin":
             update_staff_pin(sid, new_pin_reset)
             st.success("PIN updated")
 
-    # SUBSCRIPTIONS
     st.subheader("💳 Subscriptions")
 
     schools = get_schools()
@@ -113,8 +111,6 @@ if mode == "Admin":
     if subs:
         df = pd.DataFrame(subs, columns=["School","Status","Expiry"])
         st.dataframe(df, use_container_width=True)
-    else:
-        st.info("No subscriptions")
 
     st.stop()
 
@@ -123,7 +119,6 @@ elif mode == "Parent":
 
     parent_mode = st.sidebar.radio("Parent Access", ["Login","Register"])
 
-    # LOGIN
     if parent_mode == "Login":
         name = st.sidebar.text_input("Name")
         pin = st.sidebar.text_input("PIN", type="password")
@@ -144,26 +139,20 @@ elif mode == "Parent":
 
         st.title("Parent Dashboard")
 
-        st.markdown("### 💊 Medications")
-        for m in get_meds(cid):
-            st.write(f"{m[2]} — {m[3]} every {m[4]} hrs")
-
-        st.markdown("### ⚠️ Incidents")
-        for i in get_today_incidents(cid):
-            st.write(f"{i[1]} — {i[2]}")
-
         if st.button("Generate Report"):
             logs = get_today_logs(cid)
             incs = get_today_incidents(cid)
 
             out = []
+
             for l in logs:
-                time = datetime.fromisoformat(l[0])
-                med_name = l[1]
+                # FIXED ORDER
+                med_name = l[0]
+                time = datetime.fromisoformat(l[1])
                 given_by = l[2] if l[2] else "Unknown"
 
-                out.append(f"💊 {med_name} — {time.strftime('%d %b %H:%M')} ({given_by})")
-                
+                out.append(f"💊 {med_name} — {time.strftime('%H:%M')} ({given_by})")
+
             for i in incs:
                 time = datetime.fromisoformat(i[0])
                 desc = i[2]
@@ -172,11 +161,8 @@ elif mode == "Parent":
 
             st.text_area("Report", "\n".join(out), height=300)
 
-        st.info("Upgrade to add medications")
-
         st.stop()
 
-    # REGISTER
     else:
         st.title("Register")
 
@@ -195,7 +181,6 @@ elif mode == "Parent":
         if st.button("Create Account"):
             add_parent(name, pin, cmap[sel])
             st.success("Created & logged in")
-            st.session_state["parent"] = True
             st.session_state["cid"] = cmap[sel]
             st.rerun()
 
@@ -204,20 +189,27 @@ elif mode == "Parent":
 # ================= STAFF =================
 elif mode == "School Staff":
 
-    school = st.sidebar.selectbox("School", get_schools())
-    staff = st.sidebar.text_input("Name")
-    pin = st.sidebar.text_input("PIN", type="password")
+    if "staff_logged_in" not in st.session_state:
+        st.session_state["staff_logged_in"] = False
 
-    if not verify_staff(staff, pin, school):
+    if not st.session_state["staff_logged_in"]:
+        school = st.sidebar.selectbox("School", get_schools())
+        staff = st.sidebar.text_input("Name")
+        pin = st.sidebar.text_input("PIN", type="password")
+
+        if st.sidebar.button("Login"):
+            if verify_staff(staff, pin, school):
+                st.session_state["staff_logged_in"] = True
+                st.session_state["staff"] = staff
+                st.session_state["school"] = school
+                st.rerun()
+            else:
+                st.sidebar.error("Invalid login")
+
         st.stop()
 
-    sub = get_subscription(school)
-    if not sub:
-        st.stop()
-
-    status, expiry = sub
-    if status != "active":
-        st.stop()
+    school = st.session_state["school"]
+    staff = st.session_state["staff"]
 
     show_disclaimer(staff, "staff")
 
@@ -227,23 +219,16 @@ elif mode == "School Staff":
 
     st.title("DoseSafe")
 
-    # TABS
     tab1, tab2, tab3, tab4 = st.tabs(["👶 Children","💊 Medication","⚠️ Incidents","📄 Reports"])
 
-    # CHILDREN
     with tab1:
-        st.subheader("Add Child")
-
         name = st.text_input("First Name")
         surname = st.text_input("Surname")
         dob = st.date_input("DOB")
 
         if st.button("Add Child"):
             add_child(name, surname, str(dob), school)
-            st.success("Added")
             st.rerun()
-
-        st.divider()
 
         search = st.text_input("Search child")
 
@@ -251,18 +236,13 @@ elif mode == "School Staff":
         if search:
             children = [c for c in children if search.lower() in (c[1]+" "+c[2]).lower()]
 
-        if not children:
-            st.stop()
-
         cmap = {f"{c[1]} {c[2]} ({c[3]})": c[0] for c in children}
+
         sel = st.selectbox("Child", list(cmap.keys()))
         st.session_state["cid"] = cmap[sel]
 
-    # MEDICATION
     with tab2:
         cid = st.session_state.get("cid")
-        if not cid:
-            st.stop()
 
         for m in get_meds(cid):
             mid,_,name,dose,interval,unit = m
@@ -283,33 +263,13 @@ elif mode == "School Staff":
                     h = rem.seconds//3600
                     m = (rem.seconds%3600)//60
                     st.error(f"Too soon ({h}h {m}m)")
-                    st.button("Give", key=f"b_{mid}", disabled=True)
                 else:
                     if st.button("Give", key=f"g_{mid}"):
                         log_dose(mid, staff)
                         st.rerun()
-            else:
-                if st.button("Give", key=f"f_{mid}"):
-                    log_dose(mid, staff)
-                    st.rerun()
 
-        st.divider()
-
-        n = st.text_input("Name")
-        u = st.selectbox("Unit",["ml","unit","n/a"])
-        d = st.text_input("Dose")
-        i = st.number_input("Interval",1)
-
-        if st.button("Add Medication"):
-            add_med(cid, n, d, i, u)
-            add_med_to_library(n, u)
-            st.rerun()
-
-    # INCIDENTS
     with tab3:
         cid = st.session_state.get("cid")
-        if not cid:
-            st.stop()
 
         t = st.selectbox("Type",["Injury","Illness","Allergic Reaction"])
         d = st.text_input("Description")
@@ -318,11 +278,8 @@ elif mode == "School Staff":
             add_incident(cid, t, d, staff)
             st.success("Logged")
 
-    # REPORT
     with tab4:
         cid = st.session_state.get("cid")
-        if not cid:
-            st.stop()
 
         if st.button("Generate Report"):
             logs = get_today_logs(cid)
@@ -330,7 +287,6 @@ elif mode == "School Staff":
 
             out = []
 
-            # MEDICATIONS
             for l in logs:
                 med_name = l[0]
                 time = datetime.fromisoformat(l[1])
@@ -338,14 +294,10 @@ elif mode == "School Staff":
 
                 out.append(f"💊 {med_name} — {time.strftime('%H:%M')} ({given_by})")
 
-            # INCIDENTS
             for i in incs:
                 time = datetime.fromisoformat(i[0])
                 desc = i[2]
 
                 out.append(f"⚠️ {time.strftime('%H:%M')} — {desc}")
 
-            if not out:
-                st.info("No activity today")
-            else:
-                st.text_area("Report", "\n".join(out), height=300)
+            st.text_area("Report", "\n".join(out), height=300)
