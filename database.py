@@ -4,6 +4,9 @@ from datetime import datetime
 def connect():
     return sqlite3.connect("meds.db", check_same_thread=False)
 
+# -------------------------
+# CREATE TABLES
+# -------------------------
 def create_tables():
     conn = connect()
     c = conn.cursor()
@@ -20,7 +23,7 @@ def create_tables():
     )
     """)
 
-    # MEDS
+    # MEDICATIONS
     c.execute("""
     CREATE TABLE IF NOT EXISTS meds (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -31,7 +34,7 @@ def create_tables():
     )
     """)
 
-    # LOGS
+    # DOSE LOGS
     c.execute("""
     CREATE TABLE IF NOT EXISTS logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -64,7 +67,7 @@ def create_tables():
     )
     """)
 
-    # ALLERGIES
+    # ALLERGIES MASTER
     c.execute("""
     CREATE TABLE IF NOT EXISTS allergies (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -81,7 +84,7 @@ def create_tables():
     """)
 
     # DEFAULT ALLERGIES
-    defaults = ["Peanuts", "Dairy", "Eggs", "Gluten", "Soy"]
+    defaults = ["Peanuts", "Dairy", "Eggs", "Gluten", "Soy", "Penicillin", "Ibuprofen"]
     for a in defaults:
         try:
             c.execute("INSERT INTO allergies (name) VALUES (?)", (a,))
@@ -91,8 +94,9 @@ def create_tables():
     conn.commit()
     conn.close()
 
-# ---------------- STAFF ----------------
-
+# -------------------------
+# STAFF FUNCTIONS
+# -------------------------
 def add_staff(name, pin, school):
     conn = connect()
     c = conn.cursor()
@@ -142,14 +146,17 @@ def verify_staff(name, pin, school):
     conn.close()
     return result
 
-# ---------------- CHILD ----------------
-
+# -------------------------
+# CHILD FUNCTIONS
+# -------------------------
 def add_child(name, surname, dob, school):
     conn = connect()
     c = conn.cursor()
     try:
-        c.execute("INSERT INTO children (name, surname, dob, school) VALUES (?, ?, ?, ?)",
-                  (name, surname, dob, school))
+        c.execute("""
+            INSERT INTO children (name, surname, dob, school)
+            VALUES (?, ?, ?, ?)
+        """, (name, surname, dob, school))
         conn.commit()
         return c.lastrowid
     except:
@@ -165,13 +172,51 @@ def get_children(school):
     conn.close()
     return data
 
-# ---------------- MEDS ----------------
+# -------------------------
+# ALLERGIES
+# -------------------------
+def get_allergies():
+    conn = connect()
+    c = conn.cursor()
+    c.execute("SELECT id, name FROM allergies")
+    data = c.fetchall()
+    conn.close()
+    return data
 
+def add_child_allergies(child_id, allergy_ids):
+    conn = connect()
+    c = conn.cursor()
+    for aid in allergy_ids:
+        c.execute("""
+            INSERT INTO child_allergies (child_id, allergy_id)
+            VALUES (?, ?)
+        """, (child_id, aid))
+    conn.commit()
+    conn.close()
+
+def get_child_allergies(child_id):
+    conn = connect()
+    c = conn.cursor()
+    c.execute("""
+        SELECT a.name
+        FROM allergies a
+        JOIN child_allergies ca ON a.id = ca.allergy_id
+        WHERE ca.child_id=?
+    """, (child_id,))
+    data = [d[0] for d in c.fetchall()]
+    conn.close()
+    return data
+
+# -------------------------
+# MEDICATION
+# -------------------------
 def add_med(child_id, name, dosage, interval):
     conn = connect()
     c = conn.cursor()
-    c.execute("INSERT INTO meds VALUES (NULL, ?, ?, ?, ?)",
-              (child_id, name, dosage, interval))
+    c.execute("""
+        INSERT INTO meds (child_id, name, dosage, interval)
+        VALUES (?, ?, ?, ?)
+    """, (child_id, name, dosage, interval))
     conn.commit()
     conn.close()
 
@@ -183,13 +228,16 @@ def get_meds(child_id):
     conn.close()
     return data
 
-# ---------------- LOGS ----------------
-
+# -------------------------
+# DOSE LOGS
+# -------------------------
 def log_dose(med_id, given_by):
     conn = connect()
     c = conn.cursor()
-    c.execute("INSERT INTO logs VALUES (NULL, ?, ?, ?)",
-              (med_id, datetime.now().isoformat(), given_by))
+    c.execute("""
+        INSERT INTO logs (med_id, time_given, given_by)
+        VALUES (?, ?, ?)
+    """, (med_id, datetime.now().isoformat(), given_by))
     conn.commit()
     conn.close()
 
@@ -205,15 +253,29 @@ def get_last_dose(med_id):
     conn.close()
     return r[0] if r else None
 
-# ---------------- INCIDENTS ----------------
+def get_last_dose_full(med_id):
+    conn = connect()
+    c = conn.cursor()
+    c.execute("""
+        SELECT time_given, given_by
+        FROM logs
+        WHERE med_id=?
+        ORDER BY time_given DESC LIMIT 1
+    """, (med_id,))
+    r = c.fetchone()
+    conn.close()
+    return r
 
-def add_incident(child_id, t, desc, user):
+# -------------------------
+# INCIDENTS
+# -------------------------
+def add_incident(child_id, type, description, reported_by):
     conn = connect()
     c = conn.cursor()
     c.execute("""
         INSERT INTO incidents (child_id, type, description, time, reported_by)
         VALUES (?, ?, ?, ?, ?)
-    """, (child_id, t, desc, datetime.now().isoformat(), user))
+    """, (child_id, type, description, datetime.now().isoformat(), reported_by))
     conn.commit()
     conn.close()
 
@@ -229,8 +291,9 @@ def get_incidents(child_id):
     conn.close()
     return data
 
-# ---------------- REPORTS ----------------
-
+# -------------------------
+# DAILY REPORT
+# -------------------------
 def get_today_logs(child_id):
     conn = connect()
     c = conn.cursor()
@@ -261,19 +324,5 @@ def get_today_incidents(child_id):
     """, (child_id, today))
 
     data = c.fetchall()
-    conn.close()
-    return data
-
-# ---------------- ALLERGIES ----------------
-
-def get_child_allergies(child_id):
-    conn = connect()
-    c = conn.cursor()
-    c.execute("""
-        SELECT a.name FROM allergies a
-        JOIN child_allergies ca ON a.id = ca.allergy_id
-        WHERE ca.child_id=?
-    """, (child_id,))
-    data = [d[0] for d in c.fetchall()]
     conn.close()
     return data
