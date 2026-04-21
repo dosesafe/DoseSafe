@@ -288,3 +288,14 @@ def get_all_subscriptions():
     data = c.fetchall()
     conn.close()
     return data
+
+def update_staff_pin(staff_id, new_pin):
+    conn = connect()
+    c = conn.cursor()
+    c.execute("""
+        UPDATE staff
+        SET pin=?
+        WHERE id=?
+    """, (new_pin, staff_id))
+    conn.commit()
+    conn.close()
