@@ -34,17 +34,27 @@ You accept full responsibility.
 
 # ================= ADMIN =================
 if mode == "Admin":
-    u = st.sidebar.text_input("Admin Username")
-    admin_pin = st.sidebar.text_input("PIN", type="password")
 
-    if u != "Admin" or admin_pin != "1234":
+    if "admin_logged_in" not in st.session_state:
+        st.session_state["admin_logged_in"] = False
+
+    if not st.session_state["admin_logged_in"]:
+        u = st.sidebar.text_input("Admin Username", key="admin_user")
+        admin_pin = st.sidebar.text_input("PIN", type="password", key="admin_pin")
+
+        if st.sidebar.button("Login"):
+            if u == "Admin" and admin_pin == "1234":
+                st.session_state["admin_logged_in"] = True
+                st.rerun()
+            else:
+                st.sidebar.error("Invalid login")
+
         st.stop()
 
     show_disclaimer(u, "admin")
 
     if st.sidebar.button("🚪 Logout"):
-        for k in list(st.session_state.keys()):
-            del st.session_state[k]
+        st.session_state.clear()
         st.rerun()
 
     st.title("Admin Panel")
@@ -127,8 +137,7 @@ elif mode == "Parent":
         show_disclaimer(name, "parent")
 
         if st.sidebar.button("🚪 Logout"):
-            for k in list(st.session_state.keys()):
-                del st.session_state[k]
+            st.session_state.clear()
             st.rerun()
 
         cid = r[0]
@@ -213,8 +222,7 @@ elif mode == "School Staff":
     show_disclaimer(staff, "staff")
 
     if st.sidebar.button("🚪 Logout"):
-        for k in list(st.session_state.keys()):
-            del st.session_state[k]
+        st.session_state.clear()
         st.rerun()
 
     st.title("DoseSafe")
@@ -317,13 +325,27 @@ elif mode == "School Staff":
             st.stop()
 
         if st.button("Generate Report"):
-            logs = get_today_logs(cid)
-            incs = get_today_incidents(cid)
+    logs = get_today_logs(cid)
+    incs = get_today_incidents(cid)
 
-            out = []
-            for l in logs:
-                out.append(f"{l[0]} {l[1]} {l[2]}")
-            for i in incs:
-                out.append(f"{i[0]} {i[2]}")
+    out = []
 
-            st.text_area("Report", "\n".join(out), height=300)
+    # MEDICATIONS
+    for l in logs:
+        med_name = l[0]
+        time = datetime.fromisoformat(l[1])
+        given_by = l[2] if l[2] else "Unknown"
+
+        out.append(f"💊 {med_name} — {time.strftime('%H:%M')} ({given_by})")
+
+    # INCIDENTS
+    for i in incs:
+        time = datetime.fromisoformat(i[0])
+        desc = i[2]
+
+        out.append(f"⚠️ {time.strftime('%H:%M')} — {desc}")
+
+    if not out:
+        st.info("No activity today")
+    else:
+        st.text_area("Report", "\n".join(out), height=300)
