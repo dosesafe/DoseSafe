@@ -14,8 +14,7 @@ def show_disclaimer(user, role):
     st.warning("""
 IMPORTANT DISCLAIMER
 
-DoseSafe is a medication tracking tool only.
-All medication must be prescribed by a licensed doctor.
+DoseSafe is a medication tracking tool only. All medication must be prescribed by a licensed doctor.
 
 DoseSafe is NOT liable for:
 - Incorrect medication
@@ -41,8 +40,13 @@ if mode == "Admin":
         st.stop()
 
     show_disclaimer(u, "admin")
-
+if st.sidebar.button("🚪 Logout", key="admin_logout"):
+    st.session_state.clear()
+    st.rerun()
+    
 st.title("Admin Panel")
+
+st.stop()
 
 # -------------------------
 # CREATE SCHOOL + STAFF
@@ -113,14 +117,18 @@ else:
 
 # ================= PARENT =================
 if mode == "Parent":
-    n = st.sidebar.text_input("Name")
+    name = st.sidebar.text_input("Name", key="parent_name")
     parent_pin = st.sidebar.text_input("PIN", type="password", key="parent_pin")
 
-    r = verify_parent(n, parent_pin)
+    r = verify_parent(name, parent_pin)
     if not r:
         st.stop()
 
-    show_disclaimer(n,"parent")
+    show_disclaimer(name, "parent")
+
+    if st.sidebar.button("🚪 Logout", key="parent_logout"):
+        st.session_state.clear()
+        st.rerun()
 
     cid = r[0]
 
@@ -132,16 +140,22 @@ if mode == "Parent":
     st.stop()
 
 # ================= STAFF =================
-school = st.sidebar.selectbox("School", get_schools())
-staff = st.sidebar.text_input("Name")
-staff_pin = st.sidebar.text_input("PIN", type="password", key="staff_pin")
 
-if not verify_staff(staff, staff_pin, school):
-    st.stop()
+if mode == "School Staff":
+    school = st.sidebar.selectbox("School", get_schools())
+    staff = st.sidebar.text_input("Name")
+    staff_pin = st.sidebar.text_input("PIN", type="password", key="staff_pin")
 
-show_disclaimer(staff,"staff")
+    if not verify_staff(staff, staff_pin, school):
+        st.stop()
 
-st.title("DoseSafe")
+    show_disclaimer(staff,"staff")
+
+    if st.sidebar.button("🚪 Logout", key="staff_logout"):
+        st.session_state.clear()
+        st.rerun()
+        
+    st.title("DoseSafe")
 
 children = get_children(school)
 cmap = {f"{c[1]} {c[2]}":c[0] for c in children}
