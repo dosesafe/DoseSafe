@@ -102,7 +102,7 @@ if mode == "Admin":
 
         school = school.strip().title()
         add_staff(staff, pin, school)
-        set_subscription(school, "active", "2099-12-31")
+        set_subscription(school, "active", "2030-12-31")
         st.success("Done")
         st.rerun()
 
