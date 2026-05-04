@@ -71,7 +71,7 @@ if mode == "Admin":
         p = st.text_input("PIN", type="password")
 
         if st.button("Login"):
-            if u == "Admin" and p == "1234":
+            if u.lower() == "admin" and p == "1234":
                 st.session_state.update({"logged_in":True,"role":"Admin","user":u})
                 st.rerun()
             else:
@@ -107,7 +107,31 @@ if mode == "Admin":
         st.rerun()
 
     st.subheader("Subscriptions")
-    st.dataframe(pd.DataFrame(get_all_subscriptions(),columns=["School","Status","Expiry"]))
+
+    subs = get_all_subscriptions()
+    
+    st.dataframe(pd.DataFrame(subs, columns=["School","Status","Expiry"]))
+    
+    for s in subs:
+        school, status, expiry = s
+    
+        st.markdown(f"### {school}")
+    
+        try:
+            default_date = datetime.fromisoformat(expiry)
+        except:
+            default_date = datetime.today()
+    
+        new_date = st.date_input(
+            f"Expiry for {school}",
+            value=default_date,
+            key=f"date_{school}"
+        )
+    
+        if st.button(f"Update {school}", key=f"btn_{school}"):
+            set_subscription(school, "active", str(new_date))
+            st.success("Updated")
+            st.rerun()
 
 # ================= STAFF =================
 elif mode == "School Staff":
